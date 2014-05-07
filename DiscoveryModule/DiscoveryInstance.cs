@@ -184,6 +184,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		public Interest constructBdcastInterest(List<int> index)
 		{
 			// TODO: implement bdcast interest towards a specific octant
+			Octant oct = getOctantByIndex (index);
+			oct.setDigestComponent ();
+			UInt32 digest = oct.getDigestComponent ().getDigest();
+
+			// Interest result = new Interest(
 			return new Interest ();
 		}
 

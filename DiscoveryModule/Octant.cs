@@ -139,9 +139,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		/// <summary>
+		/// Sets the digest component according to this octant's nameDataset
+		/// </summary>
 		public void setDigestComponent()
 		{
 			digestComponent_ = new DigestComponent (this);
+		}
+
+		public DigestComponent getDigestComponent()
+		{
+			return digestComponent_;
 		}
 
 		/*

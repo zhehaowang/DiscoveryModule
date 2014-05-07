@@ -23,6 +23,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 
 		}
+
+		public UInt32 getDigest()
+		{
+			return digest_;
+		}
 	}
 }
 
