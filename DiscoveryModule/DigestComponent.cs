@@ -21,7 +21,12 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public DigestComponent ()
 		{
+			digest_ = 0;
+		}
 
+		public byte [] getDigestAsByteArray()
+		{
+			return CommonUtility.getBytesFromUInt32 (digest_);
 		}
 
 		public UInt32 getDigest()

@@ -177,30 +177,131 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Constructs the bdcast interest for a certain octant.
+		/// Constructs the bdcast interest for a certain octant. 
+		/// The method first checks the local digest of the octant, append it after "isWhole" byte,
+		/// And use Base64 to encode the bytes and get a string to append as the last name component.
 		/// </summary>
 		/// <returns>Interest constructed</returns>
-		/// <param name="oct">Oct.</param>
+		/// <param name="oct">The octant indices to express interest towards</param>
 		public Interest constructBdcastInterest(List<int> index)
 		{
-			// TODO: implement bdcast interest towards a specific octant
 			Octant oct = getOctantByIndex (index);
-			oct.setDigestComponent ();
-			UInt32 digest = oct.getDigestComponent ().getDigest();
 
-			// Interest result = new Interest(
-			return new Interest ();
+			//ASCII '1' stands for isWholeSet; 0 is appended so that base64 for UInt32 does not need padding
+			byte[] isWhole = { Constants.isWhole };
+			byte[] padding = { Constants.padding };
+
+			byte[] fullBytes = new byte[Constants.HashLength + isWhole.Length + padding.Length];
+			System.Buffer.BlockCopy (isWhole, 0, fullBytes, 0, isWhole.Length);
+
+			if (oct != null) {
+				oct.setDigestComponent ();
+				byte[] digestBytes = oct.getDigestComponent ().getDigestAsByteArray ();
+
+				System.Buffer.BlockCopy (digestBytes, 0, fullBytes, isWhole.Length, digestBytes.Length);
+				System.Buffer.BlockCopy (padding, 0, fullBytes, isWhole.Length + digestBytes.Length, padding.Length);
+			} else {
+				int i = isWhole.Length;
+				for (; i < fullBytes.Length; i++) {
+					System.Buffer.BlockCopy (padding, 0, fullBytes, i, padding.Length);
+				}
+			}
+			//All base 64 characters should be legal for url
+			//an easier but (slightly) longer way to express the digest component is below.
+			//char isWhole = "1";
+			//string digestStr = isWhole + digest.ToString ("D8");
+			string digestStr = Convert.ToBase64String (fullBytes);
+			string indexStr = CommonUtility.getStringFromList (index);
+
+			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
+			Interest interest = new Interest (name);
+
+			return interest;
 		}
 
 		/// <summary>
-		/// Constructs the bdcast interest for some certain childs of a octant.
+		/// Constructs the bdcast interest for some childs of a given octant.
+		/// The method first checks the local digest of each of the given octants, append them after "isPart" byte.
+		/// The format should look like (isPart ChildIndex1 00 Digest1 00 ChildIndex2 00 ChildIndex2 00)
+		/// And use Base64 to encode the bytes and get a string to append as the last name component.
 		/// </summary>
 		/// <returns>The bdcast interest.</returns>
-		public Interest constructBdcastInterest(List<int> index, List<int> childs)
+		/// <param name="index">The index of parent octant.</param> 
+		/// <param name="childs">The relative 2D index array of childs to the parent octant.</param> 
+		public Interest constructBdcastInterest(List<int> index, List<int>[] childs)
 		{
-			// TODO: implement bdcast interest towards some childs of a specific octant
-			// What's the best way to pass the childs as parameters?
-			return new Interest ();
+			// Since neither the padding constant nor the digest length is likely to change, doing it in the way below is ridiculous
+			int childNum = childs.Length;
+			int i = 0;
+
+			byte[] isWhole = { Constants.isPart };
+			byte[] padding = { Constants.padding };
+
+			int childTotalLength = 0;
+			for (i = 0; i < childNum; i++) {
+				childTotalLength += childs [i].Count;
+			}
+
+			int fullBytesLength = isWhole.Length + (int)Constants.HashLength * childNum + (int)2 * padding.Length * childNum + childTotalLength;
+			int paddingLength = 0;
+			while (((fullBytesLength + paddingLength) * 8) % 6 != 0) {
+				paddingLength++;
+			}
+			fullBytesLength += paddingLength;
+
+			byte[] fullBytes = new byte[fullBytesLength];
+
+			byte[] digestBytes = new byte[Constants.HashLength];
+			byte[] childBytes = new byte[childTotalLength];
+			Octant oct = new Octant ();
+
+			int j = 0;
+
+			System.Buffer.BlockCopy (isWhole, 0, fullBytes, 0, isWhole.Length);
+			int loc = isWhole.Length;
+
+			// Construct the byte array as (isPart ChildIndex1 00 Digest1 00 ChildIndex2 00 ChildIndex2 00)
+			for (i = 0; i < childNum; i++) {
+				for (j = 0; j < childs [i].Count; j++) {
+					childBytes [j] = (byte)childs [i] [j];
+				}
+				System.Buffer.BlockCopy (childBytes, 0, fullBytes, loc, j);
+				loc += j;
+
+				System.Buffer.BlockCopy (padding, 0, fullBytes, loc, padding.Length);
+				loc += padding.Length;
+
+				List<int> tempIndex = new List<int>(index);
+				tempIndex.AddRange (childs [i]);
+
+				oct = getOctantByIndex (tempIndex);
+				if (oct != null) {
+					oct.setDigestComponent ();
+					digestBytes = oct.getDigestComponent ().getDigestAsByteArray ();
+					System.Buffer.BlockCopy (digestBytes, 0, fullBytes, loc, digestBytes.Length);
+
+					loc += digestBytes.Length;
+				} else {
+					for (j = loc; j < loc + Constants.HashLength; j++) {
+						System.Buffer.BlockCopy (padding, 0, fullBytes, j, padding.Length);
+					}
+					loc += (int)Constants.HashLength;
+				}
+
+				System.Buffer.BlockCopy (padding, 0, fullBytes, loc, padding.Length);
+				loc += padding.Length;
+			}
+			// Copy the ending paddings, don't have to do it like this
+			for (i = 0; i < paddingLength; i++) {
+				System.Buffer.BlockCopy (padding, 0, fullBytes, loc, padding.Length);
+				loc++;
+			}
+
+			string digestStr = Convert.ToBase64String (fullBytes);
+			string indexStr = CommonUtility.getStringFromList (index);
+			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
+			Interest interest = new Interest (name);
+			return interest;
 		}
 
 		/// <summary>

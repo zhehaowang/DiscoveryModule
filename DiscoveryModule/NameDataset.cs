@@ -44,7 +44,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			foreach (string str in names_) {
 				Console.WriteLine (str);
 			}
-			Console.WriteLine ("The hash : " + hash_);
+			/*
+			Console.WriteLine ("The hash of name dataset: ");
+			Console.WriteLine (hash_);
+			*/
 		}
 
 		/// <summary>
@@ -93,7 +96,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			foreach (string str in names_) {
 				xorNames = xorStr(xorNames, str);
 			}
-			Console.WriteLine (xorNames.Length);
+			//Console.WriteLine (xorNames.Length);
 			hash_ = fnvHash (xorNames, xorNames.Length);
 		}
 

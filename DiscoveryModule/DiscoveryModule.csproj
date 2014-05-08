@@ -43,7 +43,8 @@
     <Compile Include="DigestComponent.cs" />
     <Compile Include="NameDataset.cs" />
     <Compile Include="DiscoveryInstance.cs" />
-    <Compile Include="Test\OctantTest.cs" />
+    <Compile Include="CommonUtility.cs" />
+    <Compile Include="Test\TestOctant.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
