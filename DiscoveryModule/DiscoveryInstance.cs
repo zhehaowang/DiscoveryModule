@@ -9,6 +9,8 @@ using net.named_data.jndn.security.policy;
 using net.named_data.jndn.tests;
 using System.Collections.Generic;
 
+//Overall TODO: Register Prefix, enable remote peers, Actual sending/receiving, PrivateKey from parsing DER
+
 namespace remap.NDNMOG.DiscoveryModule
 {
 	/// <summary>
@@ -19,6 +21,17 @@ namespace remap.NDNMOG.DiscoveryModule
 		public DataInterface ()
 		{
 			this.callbackCount_ = 0;
+		}
+
+		/// <summary>
+		/// Parses the data, adds names that this peer does not have, sending position fetching interest at the same time
+		/// </summary>
+		/// <param name="Interest">Interest.</param>
+		/// <param name="data">Data.</param>
+		public void parseData(Interest Interest, Data data)
+		{
+			// TODO: After the implementation of processDigest, process the data which is the return value of that function
+			return;
 		}
 
 		public virtual void onData (Interest interest, Data data)
@@ -51,6 +64,30 @@ namespace remap.NDNMOG.DiscoveryModule
 		{ 
 			keyChain_ = keyChain;      
 			certificateName_ = certificateName;
+		}
+
+		/// <summary>
+		/// Parses the digest field that comes as the last component of the interest name.
+		/// Returns a list of octants with no actual names but digest field set.
+		/// </summary>
+		/// <returns>The digest.</returns>
+		/// <param name="incomingInterest">The incoming interest that contains the digest field in question.</param> 
+		public List<Octant> parseDigest(Interest incomingInterest)
+		{
+			// TODO: Parse the digest field of incoming interest and fill the list octants
+			return new List<Octant> ();
+		}
+
+		/// <summary>
+		/// Processes the digest of given octant, .
+		/// </summary>
+		/// <returns>The digest.</returns>
+		/// <param name="octants">An octant given by parseDigest, with its nameDataset empty and DigestComponent filled.</param>
+		public Data processDigest(Octant octants)
+		{
+			// TODO: Compare the digest field of received with that of locally stored.
+			// If different, construct data which consists of local names.
+			return new Data ();
 		}
 
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
