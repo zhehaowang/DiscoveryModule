@@ -63,6 +63,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Interest interest1 = instance.constructBdcastInterest (parentLoc, childLoc);
 			Console.WriteLine (interest1.toUri ());
 
+			Console.WriteLine ();
+			InterestInterface.parseDigest (interest1);
 		}
 	}
 }

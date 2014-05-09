@@ -71,10 +71,17 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// Returns a list of octants with no actual names but digest field set.
 		/// </summary>
 		/// <returns>The digest.</returns>
-		/// <param name="incomingInterest">The incoming interest that contains the digest field in question.</param> 
-		public List<Octant> parseDigest(Interest incomingInterest)
+		/// <param name="interest">The incoming interest that contains the digest field in question.</param> 
+		public static List<Octant> parseDigest(Interest interest)
 		{
 			// TODO: Parse the digest field of incoming interest and fill the list octants
+			string interestNameStr = interest.toUri ();
+			string[] nameComponentStr = interestNameStr.Split ('/');
+			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
+
+			// Base64 bytes working.
+			byte[] digestBytes = Convert.FromBase64String (lastComponent);
+
 			return new List<Octant> ();
 		}
 
