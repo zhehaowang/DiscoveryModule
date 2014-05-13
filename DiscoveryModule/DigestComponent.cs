@@ -29,6 +29,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return CommonUtility.getBytesFromUInt32 (digest_);
 		}
 
+		public static UInt32 getDigestFromByteArray(byte [] byteArray, int offset)
+		{
+			return CommonUtility.getUInt32FromBytes (byteArray, offset);
+		}
+
 		public UInt32 getDigest()
 		{
 			return digest_;

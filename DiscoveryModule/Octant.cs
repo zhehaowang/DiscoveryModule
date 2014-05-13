@@ -45,6 +45,30 @@ namespace remap.NDNMOG.DiscoveryModule
 			return index_;
 		}
 
+		// the order's reverse
+		public List<int> getListIndex()
+		{
+			List<int> index = new List<int> ();
+			Octant oct = this;
+			while (oct != null && oct.getIndex () != Constants.rootIndex) {
+				index.Add (oct.getIndex ());
+				oct = oct.parent ();
+			}
+			return index;
+		}
+
+		// the order's not reverse, both this method and the one above are not tested.
+		public string getListIndexAsString()
+		{
+			string indexString = "";
+			Octant oct = this;
+			while (oct != null && oct.getIndex () != Constants.rootIndex) {
+				indexString = oct.getIndex () + "/" + oct.getIndex ();
+				oct = oct.parent ();
+			}
+			return indexString;
+		}
+
 		public Octant leftChild()
 		{
 			return leftChild_;

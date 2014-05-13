@@ -64,7 +64,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Console.WriteLine (interest1.toUri ());
 
 			Console.WriteLine ();
-			InterestInterface.parseDigest (interest1);
+
+			//InterestInterface.parseDigest (interest1);
 		}
 	}
 }

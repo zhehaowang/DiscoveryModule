@@ -26,6 +26,21 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
+		/// Get unsigned integer from input byte array. This method exists so that little/big endian won't be interpretted differently
+		/// </summary>
+		/// <returns>Uint32 integer.</returns>
+		/// <param name="input">Input.</param>
+		public static UInt32 getUInt32FromBytes(byte [] byteArray, int offset)
+		{
+			UInt32 u = 0;
+			u += (UInt32)byteArray [offset];
+			u += ((UInt32)byteArray [1 + offset]) << 8;
+			u += ((UInt32)byteArray [2 + offset]) << 16;
+			u += ((UInt32)byteArray [3 + offset]) << 24;
+			return u;
+		}
+
+		/// <summary>
 		/// Print the input list of integers as string, each element in the list is separated by /.
 		/// Head is ignored if it's -1.
 		/// </summary>

@@ -60,29 +60,90 @@ namespace remap.NDNMOG.DiscoveryModule
 	/// </summary>
 	public class InterestInterface : OnInterest, OnRegisterFailed
 	{
-		public InterestInterface (KeyChain keyChain, Name certificateName)
+		public InterestInterface (KeyChain keyChain, Name certificateName, Instance instance)
 		{ 
 			keyChain_ = keyChain;      
 			certificateName_ = certificateName;
+			instance_ = instance;
+		}
+
+		public static List<int> octantIndexFromInterestURI(string[] interestURI)
+		{
+			int i = 0;
+
+			List<int> index = new List<int> ();
+			int res = 0;
+			for (i = Constants.octOffset; i < interestURI.Length - 1; i++) {
+				if (int.TryParse (interestURI [i],out res)) {
+					// legal octant index range is from 1 to 8
+					if (res > 0 && res < 9) {
+						index.Add (res);
+					}
+				}
+			}
+			return index;
 		}
 
 		/// <summary>
-		/// Parses the digest field that comes as the last component of the interest name.
+		/// Original design (static) : Parses the digest field that comes as the last component of the interest name.
 		/// Returns a list of octants with no actual names but digest field set.
+		/// Current design (non-static) : Parses the digest field that comes as the last component of the interest name.
+		/// Returns a list of octants whose local digest differ from that of the received digest.
+		/// Both cases in 'parseDigest' not yet tested.
 		/// </summary>
-		/// <returns>The digest.</returns>
+		/// <returns>The list of octants, for each of which a different digest is found.</returns>
 		/// <param name="interest">The incoming interest that contains the digest field in question.</param> 
-		public static List<Octant> parseDigest(Interest interest)
+		public List<Octant> parseDigest(Interest interest)
 		{
-			// TODO: Parse the digest field of incoming interest and fill the list octants
+			// TODO: debug this method
 			string interestNameStr = interest.toUri ();
 			string[] nameComponentStr = interestNameStr.Split ('/');
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
 
-			// Base64 bytes working.
 			byte[] digestBytes = Convert.FromBase64String (lastComponent);
+			byte[] isWhole = { Constants.isWhole };
+			byte[] padding = { Constants.padding };
 
-			return new List<Octant> ();
+			List<int> index = octantIndexFromInterestURI (nameComponentStr);
+
+			List<Octant> returnList= new List<Octant> ();
+			if (digestBytes [0] == Constants.isWhole) {
+				Octant oct = instance_.getOctantByIndex (index);
+				// notice here, all interests matching the registered prefix can trigger this. But registered octant != octant the peer actually care about
+				// there are no data structures for the latter yet.
+				// The ideal returning octant should match
+				// 1. Being cared about by the instance_ (TODO, implement. Whether it's null doesn't matter)
+				// 2. Having a different digest from the incoming interest
+				if (oct == null || oct.getDigestComponent().getDigest() != CommonUtility.getUInt32FromBytes(digestBytes, isWhole.Length)) {
+					returnList.Add (oct);
+				}
+			} else {
+				int i = isWhole.Length;
+				int j = isWhole.Length;
+				List<int> tempIndex = new List<int> (index);
+
+				while (i < digestBytes.Length) {
+					while (digestBytes [i] != 0x00) {
+						tempIndex.Add((int)digestBytes[i]);
+						i++;
+					}
+					if (!tempIndex.Equals (index)) {
+						Octant oct = instance_.getOctantByIndex (tempIndex);
+						// notice here, all interests matching the registered prefix can trigger this. But registered octant != octant the peer actually care about
+						// there are no data structures for the latter yet.
+						// The ideal returning octant should match
+						// 1. Being cared about by the instance_ (TODO, implement. Whether it's null doesn't matter)
+						// 2. Having a different digest from the incoming interest
+						i += padding.Length;
+						if (oct == null || oct.getDigestComponent ().getDigest () != CommonUtility.getUInt32FromBytes (digestBytes, i)) {
+							returnList.Add (oct);
+						}
+						tempIndex = new List<int> (index);
+					}
+					i += (Constants.HashLength + padding.Length);
+				}
+			}
+			return returnList;
 		}
 
 		/// <summary>
@@ -90,21 +151,18 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <returns>The digest.</returns>
 		/// <param name="octants">An octant given by parseDigest, with its nameDataset empty and DigestComponent filled.</param>
-		public Data processDigest(Octant octants)
+		public Data generateData(Interest interest, List<Octant> octants)
 		{
-			// TODO: Compare the digest field of received with that of locally stored.
-			// If different, construct data which consists of local names.
-			return new Data ();
-		}
-
-		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
-		{
-			++responseCount_;
-
 			// Make and sign a Data packet.
 			Data data = new Data (interest.getName ());
-			String content = "Echo " + interest.getName ().toUri ();
-			data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
+
+			String content = "";
+
+			foreach (Octant oct in octants)
+			{
+				//content += oct.
+				data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
+			}
 
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
@@ -112,12 +170,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			try {
 				keyChain_.sign (data, certificateName_);
 			} catch (SecurityException exception) {
-				// Don't expect this to happen.
 				Console.WriteLine ("SecurityException in sign: " + exception.Message);
 			}
+			return data;
+		}
+
+		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+		{
+			++responseCount_;
+			Data data = generateData (interest, parseDigest(interest));
 			Blob encodedData = data.wireEncode ();
 
-			Console.WriteLine ("Sent content " + content);
 			try {
 				transport.send (encodedData.buf ());
 			} catch (Exception ex) {
@@ -134,6 +197,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		KeyChain keyChain_;
 		Name certificateName_;
 		public int responseCount_ = 0;
+		Instance instance_;
 	}
 
 	/// <summary>
@@ -161,8 +225,8 @@ namespace remap.NDNMOG.DiscoveryModule
 				return;
 			}
 
-			// Let's imagine all the octants are derived from a octant index '0'?
-			root_ = new Octant (-1, false);
+			// Let's imagine all the octants are derived from a octant index '-1'?
+			root_ = new Octant (Constants.rootIndex, false);
 			// creates the tree structure using the index as input, 
 			// and put the name of self to the nameDataset of leaf.
 			int i = 0;
@@ -369,7 +433,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
-				InterestInterface echo = new InterestInterface (keyChain, certificateName);
+				InterestInterface echo = new InterestInterface (keyChain, certificateName, this);
 				Name prefix = new Name ("/unitytest");
 				Console.WriteLine ("Register prefix  " + prefix.toUri ());
 				face.registerPrefix (prefix, echo, echo);
