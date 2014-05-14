@@ -43,7 +43,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			List<int> anotherLoc = new List<int> () {
 				3, 1, 4, 3,
-				4, 5, 6, 1
+				4, 5, 2, 1
 			};
 
 			List<int>[] childLoc = new List<int>[2];
@@ -85,12 +85,12 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Console.WriteLine ("The names in the starting location of instance: ");
 			oct.getNameDataset ().debugList ();
 
-			// try constructing a broadcast interest from the info of startingLoc
+			// try constructing a broadcast interest from the info of startingLoc, which should contain 3 names
 			Console.WriteLine ("Constructing interest from starting location: ");
 			Interest interest = instance.constructBdcastInterest (startingLoc);
 			Console.WriteLine (interest.toUri ());
 
-			// try constructing a broadcast interest from startingLoc and childLoc list
+			// try constructing a broadcast interest from startingLoc and childLoc list, which does not contain any names
 			Console.WriteLine ("Constructing interest from starting location and another location: ");
 			Interest interest1 = instance.constructBdcastInterest (parentLoc, childLoc);
 			Console.WriteLine (interest1.toUri ());
@@ -100,6 +100,11 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Instance instance1 = new Instance (startingLoc, "anotherinstance");
 			// test for constructing data packet for given interest.
 			Face face = new Face ("localhost");
+
+			// and 'another instance' is interested in childLoc[1] as well, and 'another instance' thinks there is 'something' in the childLoc[1]
+			parentLoc.AddRange (childLoc [1]);
+			instance1.addOctant (parentLoc);
+			instance1.getOctantByIndex (parentLoc).addName ("something");
 
 			MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
 			MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();

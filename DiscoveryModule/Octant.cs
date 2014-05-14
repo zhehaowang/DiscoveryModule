@@ -22,16 +22,25 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Octant rightSibling_;
 		private Octant parent_;
 
+		// tracking_ indicates whether the instance is still interested in this octant.
+		private bool tracking_;
+
 		public Octant()
 		{
 			nameDataset_ = new NameDataset ();
 			digestComponent_ = new DigestComponent ();
+			tracking_ = true;
+
+			leftChild_ = null;
+			rightSibling_ = null;
+			parent_ = null;
 		}
 
 		public Octant(int index, bool isLeaf = true)
 		{
 			nameDataset_ = new NameDataset ();
 			digestComponent_ = new DigestComponent ();
+			tracking_ = true;
 
 			index_ = index;
 			isLeaf_ = isLeaf;
@@ -100,6 +109,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return isLeaf_;
 		}
 
+		public bool isTracking()
+		{
+			return tracking_;
+		}
+
 		/// <summary>
 		/// Get the child of octant node by given index
 		/// </summary>
@@ -165,7 +179,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				NameDataset result = new NameDataset();
 				// Built-in BFS tree traversal
-				// TODO: test this BFS traversal for real case
 				Queue q = new Queue ();
 				q.Enqueue (this);
 				Octant temp = new Octant ();

@@ -117,10 +117,12 @@ namespace remap.NDNMOG.DiscoveryModule
 				// notice here, all interests matching the registered prefix can trigger this. But registered octant != octant the peer actually care about
 				// there are no data structures for the latter yet.
 				// The ideal returning octant should match
-				// 1. Being cared about by the instance_ (TODO, implement. Whether oct's null doesn't matter)
+				// 1. Being cared about by the instance_ : added tracking_ member to octant class; if an octant is cared about by the instance, it can not be null
 				// 2. Having a different digest from the incoming interest
-				if (oct == null || oct.getDigestComponent().getDigest() != CommonUtility.getUInt32FromBytes(digestBytes, isWhole.Length)) {
-					returnList.Add (oct);
+				if (oct != null) {
+					if (oct.isTracking () && oct.getDigestComponent ().getDigest () != CommonUtility.getUInt32FromBytes (digestBytes, isWhole.Length)) {
+						returnList.Add (oct);
+					}
 				}
 			} else {
 				int i = isWhole.Length;
@@ -137,11 +139,13 @@ namespace remap.NDNMOG.DiscoveryModule
 						// notice here, all interests matching the registered prefix can trigger this. But registered octant != octant the peer actually care about
 						// there are no data structures for the latter yet.
 						// The ideal returning octant should match
-						// 1. Being cared about by the instance_ (TODO, implement. Whether it's null doesn't matter)
+						// 1. Being cared about by the instance_ : added tracking_ member to octant class; if an octant is cared about by the instance, it can not be nul
 						// 2. Having a different digest from the incoming interest
 						i += padding.Length;
-						if (oct == null || oct.getDigestComponent ().getDigest () != CommonUtility.getUInt32FromBytes (digestBytes, i)) {
-							returnList.Add (oct);
+						if (oct != null) {
+							if (oct.isTracking () && oct.getDigestComponent ().getDigest () != CommonUtility.getUInt32FromBytes (digestBytes, isWhole.Length)) {
+								returnList.Add (oct);
+							}
 						}
 						tempIndex = new List<int> (index);
 					}
@@ -298,7 +302,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void debugTree()
 		{
 			// Built-in BFS tree traversal
-			// TODO: test this BFS traversal for real case
+			// Simple BFS testing passed
 			Queue q = new Queue ();
 			q.Enqueue (root_);
 			Octant temp;
