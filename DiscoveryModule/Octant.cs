@@ -173,10 +173,10 @@ namespace remap.NDNMOG.DiscoveryModule
 				{
 					temp = (Octant)q.Dequeue ();
 					if (!temp.isLeaf ()) {
-						q.Enqueue (temp.leftChild ());
-						while (temp.rightSibling () != null) {
-							temp = temp.rightSibling ();
+						temp = temp.leftChild ();
+						while (temp != null) {
 							q.Enqueue (temp);
+							temp = temp.rightSibling ();
 						}
 					} else {
 						result.appendNames (temp.getNameDataset ());

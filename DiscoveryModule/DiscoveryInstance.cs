@@ -10,6 +10,7 @@ using net.named_data.jndn.tests;
 using System.Collections.Generic;
 
 //Overall TODO: Register Prefix, enable remote peers, Actual sending/receiving, PrivateKey from parsing DER
+using System.Collections;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -289,6 +290,32 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Debugs the octree structure of this instance.
+		/// </summary>
+		public void debugTree()
+		{
+			// Built-in BFS tree traversal
+			// TODO: test this BFS traversal for real case
+			Queue q = new Queue ();
+			q.Enqueue (root_);
+			Octant temp;
+
+			while (q.Count != 0) {
+				temp = (Octant)q.Dequeue ();
+				Console.WriteLine (temp.getIndex() + " ");
+
+				if (!temp.isLeaf ()) {
+					temp = temp.leftChild ();
+					while (temp != null) {
+						q.Enqueue (temp);
+						temp = temp.rightSibling ();
+					}
+				}
+			}
+			return;
 		}
 
 		/// <summary>
