@@ -70,7 +70,14 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			oct.addName (nameList1[1]);
 
 			// assume that this instance also knows about another loc
+			bool added = instance.addOctant (anotherLoc);
+			Console.WriteLine (added);
 
+			// test if addOctant by Index works as it should
+			/*
+			added = instance.addOctant (parentLoc);
+			Console.WriteLine (added);
+			*/
 
 			Console.WriteLine ("The names in the starting location of instance: ");
 			oct.getNameDataset ().debugList ();

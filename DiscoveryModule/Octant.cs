@@ -101,6 +101,28 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
+		/// Get the child of octant node by given index
+		/// </summary>
+		/// <returns>null, if current node does not have any children or among the children it has, none matches the index;
+		/// The child octant, if there is a child that matches the given index.</returns>
+		/// <param name="index">Index of the child node.</param>
+		public Octant getChildByIndex(int index)
+		{
+			if (leftChild_ == null) {
+				return null;
+			} else {
+				Octant temp = leftChild_;
+				while (temp != null) {
+					if (temp.getIndex () == index) {
+						return temp;
+					}
+					temp = temp.rightSibling();
+				}
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Adds a child node to a certain octree node
 		/// </summary>
 		/// <returns>Void</returns>

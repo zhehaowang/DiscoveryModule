@@ -248,6 +248,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			int i = 0;
 			Octant temp = root_;
 
+			// since it's the instantiation process, all childs are null. So we don't call addOctant to add initial octant according to index
 			for (i = 0; i < Constants.octreeLevel - 1; i++) {
 				Octant insert = new Octant (index[i], false);
 				temp.addChild (insert);
@@ -258,6 +259,36 @@ namespace remap.NDNMOG.DiscoveryModule
 			temp.addChild (temp1);
 
 			name_ = name;
+		}
+
+		/// <summary>
+		/// Add another octant to the octree structure of this instance identified by root.
+		/// </summary>
+		/// <returns>true, if octant with given indices is added; false, if octant with given indices already exists.</returns>
+		/// <param name="index">The octant index list of the octant to be added</param>
+		public bool addOctant(List<int> index)
+		{
+			int i = 0;
+			Octant temp = root_;
+			bool isLeaf = (index.Count == Constants.octreeLevel);
+			for (i = 0; i < index.Count - 1; i++) {
+				Octant insert = temp.getChildByIndex (index [i]);
+				if (insert == null) {
+					insert = new Octant (index [i], false);
+					temp.addChild (insert);
+					temp = insert;
+				} else {
+					temp = insert;
+				}
+			}
+			Octant temp1 = temp.getChildByIndex (index [i]);
+			if (temp1 == null) {
+				temp1 = new Octant (index [i], isLeaf);
+				temp.addChild (temp1);
+				return true;
+			} else {
+				return false;
+			}
 		}
 
 		/// <summary>
