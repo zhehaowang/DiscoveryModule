@@ -9,7 +9,6 @@ using net.named_data.jndn.security.policy;
 using net.named_data.jndn.tests;
 using System.Collections.Generic;
 
-//Overall TODO: Register Prefix, enable remote peers, Actual sending/receiving, PrivateKey from parsing DER
 using System.Collections;
 
 namespace remap.NDNMOG.DiscoveryModule
@@ -19,9 +18,10 @@ namespace remap.NDNMOG.DiscoveryModule
 	/// </summary>
 	public class DataInterface : OnData, OnTimeout
 	{
-		public DataInterface ()
+		public DataInterface (Instance instance)
 		{
 			this.callbackCount_ = 0;
+			this.instance_ = instance;
 		}
 
 		/// <summary>
@@ -31,15 +31,41 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="data">Data.</param>
 		public void parseData(Interest Interest, Data data)
 		{
-			// TODO: After the implementation of processDigest, process the data which is the return value of that function
+			ByteBuffer content = data.getContent ().buf ();
+
+			byte[] contentBytes = new byte[content.remaining()];
+			content.get (contentBytes);
+
+			string contentStr = Encoding.UTF8.GetString (contentBytes);
+
+			string[] octantsStr = contentStr.Split ('\n');
+			int i = 0;
+
+			foreach (string str in octantsStr) {
+				if (str != "") {
+					string[] namesStr = str.Split (' ');
+
+					List<int> index = CommonUtility.getListFromString (namesStr [namesStr.Length - 1]);
+
+					Octant oct = instance_.getOctantByIndex (index);
+					if (oct != null && oct.isTracking()) {
+						for (i = 0; i < namesStr.Length - 1; i++) {
+							if (!oct.getNameDataset ().containsName (namesStr [i])) {
+								// TODO: express position interest using all the names received in the data packet that current instance does not have
+								Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+							}
+						}
+					}
+				}
+			}
+
 			return;
 		}
 
 		public virtual void onData (Interest interest, Data data)
 		{
 			++callbackCount_;
-			System.Console.Out.WriteLine ("Got data packet with name "
-			+ data.getName ().toUri ());
+			System.Console.Out.WriteLine ("Got data packet with name " + data.getName ().toUri ());
 			ByteBuffer content = data.getContent ().buf ();
 			for (int i = content.position (); i < content.limit (); ++i)
 				System.Console.Out.Write ((char)content.get (i));
@@ -47,6 +73,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		public int callbackCount_;
+		private Instance instance_;
 
 		public virtual void onTimeout (Interest interest)
 		{
@@ -96,7 +123,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="interest">The incoming interest that contains the digest field in question.</param> 
 		public List<Octant> parseDigest(Interest interest)
 		{
-			// TODO: debug this method
 			string interestNameStr = interest.toUri ();
 			string[] nameComponentStr = interestNameStr.Split ('/');
 
@@ -168,17 +194,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			Data data = new Data (interest.getName ());
 
 			String content = "";
-			// TODO: Test this feature
 
 			foreach (Octant oct in octants)
 			{
-				if (oct == null) {
-					Console.WriteLine (" Null octant detected");
-				}
-				content += (oct.getNameDataset ().getNamesAsString() + " " + oct.getListIndexAsString() + " ");
+				content += (oct.getNameDataset ().getNamesAsString() + oct.getListIndexAsString() + "\n");
 			}
-
-			Console.WriteLine (content);
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.

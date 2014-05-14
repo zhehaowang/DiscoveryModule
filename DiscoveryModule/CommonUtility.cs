@@ -59,6 +59,22 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 			return str;
 		}
+
+		public static List<int> getListFromString(string inputStr)
+		{
+			string[] strs = inputStr.Split ('/');
+			List<int> result = new List<int> ();
+			int temp = 0;
+			foreach(string str in strs)
+			{
+				if (str != "") {
+					if (int.TryParse (str, out temp)) {
+						result.Add (temp);
+					}
+				}
+			}
+			return result;
+		}
 	}
 }
 

@@ -31,6 +31,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return;
 		}
 
+		public bool containsName(string name)
+		{
+			return names_.Contains (name);
+		}
+
 		public NameDataset(List<string> names)
 		{
 			names_ = names;

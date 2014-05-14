@@ -49,11 +49,11 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			List<int>[] childLoc = new List<int>[2];
 
 			childLoc [0] = new List<int> () {
-				1
+				7
 			};
 
 			childLoc [1] = new List<int> () {
-				7
+				1
 			};
 
 			//NameDataset ndTest1 = new NameDataset (nameList1);
@@ -123,7 +123,13 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			List<Octant> octants = ii.parseDigest (interest1);
 			if (octants.Count != 0) {
-				Data data = ii.generateData (interest, octants);
+				// for debugging and not actual network tranmission, using new Interest() in generateData/parseData won't cause problems
+				Data data = ii.generateData (new Interest(), octants);
+				DataInterface di = new DataInterface (instance);
+
+				// in this test, because instance is not tracking childLoc[1], though data belonging to the oct is returned, 
+				// it does not get shown in debug or used for constructing position interest in later processes.
+				di.parseData (new Interest(), data);
 			}
 			//Console.WriteLine (data.getContent().toHex());
 

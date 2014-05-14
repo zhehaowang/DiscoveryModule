@@ -7,6 +7,7 @@ namespace remap.NDNMOG.DiscoveryModule
 {
 	/// <summary>
 	/// Octant class describes an octant and its attributes.
+	/// Each octant is considered to be a node in octree, whose root_ is hosted by Instance class.
 	/// </summary>
 	public class Octant
 	{
@@ -211,27 +212,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			return digestComponent_;
 		}
-
-		/*
-		public string getIndexAsString()
-		{
-			string returnStr = "";
-			int i = 0;
-			for (i = 0; i < length_; i++)
-			{
-				returnStr += index_ [i];
-				returnStr += "/";
-			}
-			return returnStr;
-		}
-
-		public void debugOctant()
-		{
-			string str = getIndexAsString ();
-			Console.WriteLine (str);
-		}
-		*/
-
 	}
 }
 
