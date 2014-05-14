@@ -58,12 +58,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		// the order's not reverse, both this method and the one above are not tested.
+		// this method is not tested yet
 		public string getListIndexAsString()
 		{
 			string indexString = "";
 			Octant oct = this;
 			while (oct != null && oct.getIndex () != Constants.rootIndex) {
-				indexString = oct.getIndex () + "/" + oct.getIndex ();
+				indexString = oct.getIndex () + "/" + indexString;
 				oct = oct.parent ();
 			}
 			return indexString;

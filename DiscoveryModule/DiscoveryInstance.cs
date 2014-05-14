@@ -98,9 +98,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			// TODO: debug this method
 			string interestNameStr = interest.toUri ();
 			string[] nameComponentStr = interestNameStr.Split ('/');
+
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
+			// because of url-safe replacement, before decoding base64, replace '_' back with '/'
+			lastComponent = lastComponent.Replace ('_', '/');
 
 			byte[] digestBytes = Convert.FromBase64String (lastComponent);
+
 			byte[] isWhole = { Constants.isWhole };
 			byte[] padding = { Constants.padding };
 
@@ -112,7 +116,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				// notice here, all interests matching the registered prefix can trigger this. But registered octant != octant the peer actually care about
 				// there are no data structures for the latter yet.
 				// The ideal returning octant should match
-				// 1. Being cared about by the instance_ (TODO, implement. Whether it's null doesn't matter)
+				// 1. Being cared about by the instance_ (TODO, implement. Whether oct's null doesn't matter)
 				// 2. Having a different digest from the incoming interest
 				if (oct == null || oct.getDigestComponent().getDigest() != CommonUtility.getUInt32FromBytes(digestBytes, isWhole.Length)) {
 					returnList.Add (oct);
@@ -143,27 +147,35 @@ namespace remap.NDNMOG.DiscoveryModule
 					i += (Constants.HashLength + padding.Length);
 				}
 			}
+
 			return returnList;
 		}
 
 		/// <summary>
-		/// Processes the digest of given octant, .
+		/// Generate Data class to be used as response to the given interest, according to given list of octant.
 		/// </summary>
 		/// <returns>The digest.</returns>
-		/// <param name="octants">An octant given by parseDigest, with its nameDataset empty and DigestComponent filled.</param>
+		/// <param name="octants">A list of octants belonging to the current instance.</param>
+		/// <param name="interest">Given interest to which the generated data responds.</param> 
 		public Data generateData(Interest interest, List<Octant> octants)
 		{
 			// Make and sign a Data packet.
 			Data data = new Data (interest.getName ());
 
 			String content = "";
+			// TODO: Test this feature
 
 			foreach (Octant oct in octants)
 			{
-				//content += oct.
-				data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
+				if (oct == null) {
+					Console.WriteLine (" Null octant detected");
+				}
+				content += (oct.getNameDataset ().getNamesAsString() + " " + oct.getListIndexAsString() + " ");
 			}
 
+			Console.WriteLine (content);
+
+			data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
 
@@ -178,13 +190,16 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
 			++responseCount_;
-			Data data = generateData (interest, parseDigest(interest));
-			Blob encodedData = data.wireEncode ();
+			List<Octant> octants = parseDigest (interest);
+			if (octants.Count != 0) {
+				Data data = generateData (interest, octants);
+				Blob encodedData = data.wireEncode ();
 
-			try {
-				transport.send (encodedData.buf ());
-			} catch (Exception ex) {
-				Console.WriteLine ("Echo: IOException in sending data " + ex.Message);
+				try {
+					transport.send (encodedData.buf ());
+				} catch (Exception ex) {
+					Console.WriteLine ("Echo: IOException in sending data " + ex.Message);
+				}
 			}
 		}
 
@@ -214,10 +229,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		string name_;
 
 		/// <summary>
-		/// NetworkInterface class is supposed to be generated from an initial position of the player,
-		/// which is a list of integers
+		/// Instance class is supposed to be generated from an initial position of the player,
+		/// which is a list of integers; and a string name, which is the name of the player(instance).
 		/// </summary>
 		/// <param name="index">Index</param>
+		/// <param name="name">The name of the player (this instance).</param>
 		public Instance (List<int> index, string name)
 		{
 			if (index.Count != Constants.octreeLevel) {
@@ -314,11 +330,12 @@ namespace remap.NDNMOG.DiscoveryModule
 					System.Buffer.BlockCopy (padding, 0, fullBytes, i, padding.Length);
 				}
 			}
-			//All base 64 characters should be legal for url
+			//All base64 characters are legal for url, but in order for the digest field to be url-safe, the following replace is done
 			//an easier but (slightly) longer way to express the digest component is below.
 			//char isWhole = "1";
 			//string digestStr = isWhole + digest.ToString ("D8");
 			string digestStr = Convert.ToBase64String (fullBytes);
+			digestStr = digestStr.Replace ('/', '_');
 			string indexStr = CommonUtility.getStringFromList (index);
 
 			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
@@ -406,6 +423,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 
 			string digestStr = Convert.ToBase64String (fullBytes);
+			digestStr = digestStr.Replace ('/', '_');
+
 			string indexStr = CommonUtility.getStringFromList (index);
 			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
 			Interest interest = new Interest (name);

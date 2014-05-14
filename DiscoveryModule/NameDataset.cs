@@ -50,6 +50,15 @@ namespace remap.NDNMOG.DiscoveryModule
 			*/
 		}
 
+		public string getNamesAsString()
+		{
+			string result = "";
+			foreach (string str in names_) {
+				result += (str + " ");
+			}
+			return result;
+		}
+
 		/// <summary>
 		/// Gets the names.
 		/// </summary>
