@@ -116,6 +116,85 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
+		/// Start tracking this octant.
+		/// </summary>
+		public void startTracking()
+		{
+			tracking_ = true;
+			return;
+		}
+
+		/// <summary>
+		/// Stop tracking this octant only.
+		/// </summary>
+		public void stopTracking()
+		{
+			tracking_ = false;
+			return;
+		}
+
+		public bool hasTrackingChildren()
+		{
+			if (isLeaf_) {
+				return false;
+			}
+
+			// Built in BFS
+			Queue q = new Queue ();
+			q.Enqueue (this);
+
+			Octant temp;
+			while (q.Count != 0)
+			{
+				temp = (Octant)q.Dequeue ();
+				if (temp.isTracking ()) {
+					return true;
+				}
+
+				if (!temp.isLeaf ()) {
+					temp = temp.leftChild ();
+					while (temp != null) {
+						q.Enqueue (temp);
+						temp = temp.rightSibling ();
+					}
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Stop tracking this octant, and all of its child octants.
+		/// </summary>
+		/// >param name="stopChild">True, stops the tracking of all of its children as well. False, just stop tracking this octant.</param>
+		public void stopTracking(bool stopChild)
+		{
+			if (!stopChild) {
+				stopTracking ();
+				return;
+			}
+
+			// Built in BFS
+			Queue q = new Queue ();
+			q.Enqueue (this);
+
+			Octant temp;
+			while (q.Count != 0)
+			{
+				temp = (Octant)q.Dequeue ();
+				temp.stopTracking ();
+
+				if (!temp.isLeaf ()) {
+					temp = temp.leftChild ();
+					while (temp != null) {
+						q.Enqueue (temp);
+						temp = temp.rightSibling ();
+					}
+				}
+			}
+			return;
+		}
+
+		/// <summary>
 		/// Get the child of octant node by given index
 		/// </summary>
 		/// <returns>null, if current node does not have any children or among the children it has, none matches the index;
@@ -179,7 +258,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				return nameDataset_;
 			} else {
 				NameDataset result = new NameDataset();
-				// Built-in BFS tree traversal
+				// Built-in BFS
 				Queue q = new Queue ();
 				q.Enqueue (this);
 				Octant temp = new Octant ();

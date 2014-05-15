@@ -65,11 +65,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public virtual void onData (Interest interest, Data data)
 		{
 			++callbackCount_;
-			System.Console.Out.WriteLine ("Got data packet with name " + data.getName ().toUri ());
-			ByteBuffer content = data.getContent ().buf ();
-			for (int i = content.position (); i < content.limit (); ++i)
-				System.Console.Out.Write ((char)content.get (i));
-			System.Console.Out.WriteLine ("");
+			parseData (interest, data);
 		}
 
 		public int callbackCount_;
@@ -78,8 +74,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public virtual void onTimeout (Interest interest)
 		{
 			++callbackCount_;
-			System.Console.Out.WriteLine ("Time out for interest "
-			+ interest.getName ().toUri ());
+			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
 		}
 	}
 
@@ -250,8 +245,14 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <summary>
 		/// The root of the octree which stores all the names a player knows
 		/// </summary>
-		Octant root_;
-		string name_;
+		private Octant root_;
+		private string name_;
+
+		// The list of prefix filter strings (octant Indices)
+		private List<string> trackingPrefixes_;
+
+		// The list of octants to express interest towards
+		private List<string> interestExpressionOctants_;
 
 		/// <summary>
 		/// Instance class is supposed to be generated from an initial position of the player,
@@ -514,7 +515,81 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// discovery is copied from TestPublishAsyncNdnx directly.
+		/// Start tracking an octant if it was not tracked before.
+		/// (Expressing interest towards it, and register prefix for receiving interest about its parent indicated by valid level of octants)
+		/// </summary>
+		/// <returns>The octant.</returns>
+		public void trackOctant(Octant oct)
+		{
+			// TODO: test this method
+
+			List<int> index = oct.getListIndex ();
+			Octant temp = oct;
+			int i = Constants.octreeLevel - index.Count + 1;
+			if (i < 1) {
+				Console.WriteLine ("Given octant's indices doesn't fit in valid octree level");
+				return;
+			}
+			for (; i<Constants.validOctreeLevel; i++)
+			{
+				temp = temp.parent ();
+			}
+
+			// register prefix for its parent
+			string filterPrefixStr = temp.getListIndexAsString ();
+			if (!trackingPrefixes_.Contains (filterPrefixStr)) {
+				trackingPrefixes_.Add (filterPrefixStr);
+			}
+
+			// express interest for itself
+			string interestPrefixStr = oct.getListIndexAsString ();
+			if (!interestExpressionOctants_.Contains (interestPrefixStr)) {
+				interestExpressionOctants_.Add (interestPrefixStr);
+			}
+
+			oct.startTracking ();
+		}
+
+		/// <summary>
+		/// Stop tracking an octant if it's being tracked now.
+		/// (Stop expressing interest towards it. Stop registering prefix for its parent, if its parent does not contain any other tracking children)
+		/// </summary>
+		public void untrackOctant(Octant oct)
+		{
+			// TODO: test this method
+			oct.stopTracking ();
+
+			// stop registering prefix for its parent if this octant's the last tracking children of that parent
+			List<int> index = oct.getListIndex ();
+			Octant temp = oct;
+			int i = Constants.octreeLevel - index.Count + 1;
+			if (i < 1) {
+				Console.WriteLine ("Given octant's indices doesn't fit in valid octree level");
+				return;
+			}
+			for (; i<Constants.validOctreeLevel; i++)
+			{
+				temp = temp.parent ();
+			}
+
+			string filterPrefixStr = temp.getListIndexAsString ();
+			int idx = trackingPrefixes_.IndexOf (filterPrefixStr);
+			if (idx != -1) {
+				if (!temp.hasTrackingChildren ()) {
+					trackingPrefixes_.RemoveAt (idx);
+				}
+			}
+
+			// stop expressing interest for itself
+			string interestPrefixStr = oct.getListIndexAsString ();
+			idx = interestExpressionOctants_.IndexOf (interestPrefixStr);
+			if (idx != -1) {
+				interestExpressionOctants_.RemoveAt(idx);
+			}
+		}
+
+		/// <summary>
+		/// Discovery sends broadcast discovery interest periodically.
 		/// </summary>
 		public void discovery ()
 		{
@@ -534,14 +609,17 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
-				InterestInterface echo = new InterestInterface (keyChain, certificateName, this);
+				InterestInterface interestHandle = new InterestInterface (keyChain, certificateName, this);
+
+				// TODO: Implement which octant to express interest towards; and which octant to register prefix for;
 				Name prefix = new Name ("/unitytest");
+
 				Console.WriteLine ("Register prefix  " + prefix.toUri ());
-				face.registerPrefix (prefix, echo, echo);
+				face.registerPrefix (prefix, interestHandle, interestHandle);
 
 				// The main event loop.  
 				// Wait to receive one interest for the prefix.
-				while (echo.responseCount_ < 1) {
+				while (interestHandle.responseCount_ < 1) {
 					face.processEvents ();
 
 					// We need to sleep for a few milliseconds so we don't use 100% of 

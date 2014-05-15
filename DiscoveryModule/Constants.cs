@@ -15,6 +15,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int octOffset = 4;
 
 		public const int octreeLevel = 8;
+		// interest can only be expressed towards the lowest 2 levels of the octant.
+		public const int validOctreeLevel = 2;
 
 		public const byte isWhole = 0x31;
 		public const byte isPart = 0x30;
