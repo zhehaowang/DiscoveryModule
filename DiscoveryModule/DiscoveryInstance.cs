@@ -611,7 +611,10 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				InterestInterface interestHandle = new InterestInterface (keyChain, certificateName, this);
 
-				// TODO: Implement which octant to express interest towards; and which octant to register prefix for;
+				// TODO: Implement which octant to express interest towards; and how to express interest towards it:
+				// Cross thread access of variable interestExpressOctants...
+				// And implement which octant to register prefix for...register prefix here? or in track/untrackOctant? 
+
 				Name prefix = new Name ("/unitytest");
 
 				Console.WriteLine ("Register prefix  " + prefix.toUri ());
