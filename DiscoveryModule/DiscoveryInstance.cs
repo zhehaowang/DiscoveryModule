@@ -132,6 +132,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public List<Octant> parseDigest(Interest interest)
 		{
 			string interestNameStr = interest.getName().toUri ();
+			Console.WriteLine ("Interestname string is : " + interestNameStr);
 			string[] nameComponentStr = interestNameStr.Split ('/');
 
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
@@ -211,6 +212,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
+			data.getMetaInfo ().setFreshnessPeriod (Constants.DataFreshnessSeconds);
 
 			try {
 				keyChain_.sign (data, certificateName_);
@@ -652,6 +654,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			int i = 0;
 			Interest interest = new Interest();
+			int sleepSeconds = 0; 
 
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DataInterface dataHandle = new DataInterface (this);
@@ -664,18 +667,27 @@ namespace remap.NDNMOG.DiscoveryModule
 					long pid = face_.expressInterest (interest.getName(), dataHandle, dataHandle);
 
 					interest.setMustBeFresh (true);
-					interest.setInterestLifetimeMilliseconds (Constants.BroadcastInterval);
+					interest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
 
 					Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri());
-
-					//Thread.Sleep (Constants.BroadcastInterval);
 
 					while (dataHandle.callbackCount_ < 1) {
 						//while (true){
 						face_.processEvents ();
-						System.Threading.Thread.Sleep (5);
+						System.Threading.Thread.Sleep (10);
+						sleepSeconds += 10;
 					}
 					dataHandle.callbackCount_ = 0;
+					sleepSeconds = 0;
+
+					// give the peer some time(3s) for it to process the unique names received, 
+					// and confirm with those unique names whether they are in my vicinity or not.
+					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
+					int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
+					if (interval > 0)
+					{
+						Thread.Sleep (interval);
+					}
 				}
 			}
 		}

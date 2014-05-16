@@ -33,7 +33,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			List<int> startingLoc = new List<int> () {
 				3, 1, 4, 3,
-				4, 5, 6, 7
+				4, 5, 6, 4
 			};
 
 			List<int> parentLoc = new List<int> () {
@@ -49,7 +49,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			List<int>[] childLoc = new List<int>[2];
 
 			childLoc [0] = new List<int> () {
-				7
+				4
 			};
 
 			childLoc [1] = new List<int> () {
@@ -62,7 +62,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Instance instance = new Instance (startingLoc, "zhehaowang");
+			Instance instance = new Instance (startingLoc, "cantbelieve");
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc

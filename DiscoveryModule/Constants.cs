@@ -26,8 +26,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const byte isPart = 0x30;
 		public const byte padding = 0x00;
 
-		// Interval for broadcasting discovery interests
-		public const int BroadcastInterval = 10000;
+		// Interval for broadcasting discovery interests if interest times out
+		public const int BroadcastTimeoutMilliSeconds = 10000;
+		// Interval for broadcasting discovery interests if interest brought back unique names
+		public const int BroadcastIntervalMilliSeconds = 3000;
+		// Freshness period for data
+		public const int DataFreshnessSeconds = 20;
 
 		public const int rootIndex = -1;
 	}
