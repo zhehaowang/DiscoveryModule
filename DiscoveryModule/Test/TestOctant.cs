@@ -62,7 +62,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Instance instance = new Instance (startingLoc, "mytest");
+			Instance instance = new Instance (startingLoc, "zhehaowang");
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -128,7 +128,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 				// in this test, because instance is not tracking childLoc[1], though data belonging to the oct is returned, 
 				// it does not get shown in debug or used for constructing position interest in later processes.
-				di.parseData (new Interest(), data);
+				di.parseContent (new Interest(), data);
 			}
 
 			// instance is interested in its starting location

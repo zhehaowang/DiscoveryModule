@@ -30,40 +30,44 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <param name="Interest">Interest.</param>
 		/// <param name="data">Data.</param>
-		public void parseData(Interest Interest, Data data)
+		public void parseContent(Interest Interest, Data data)
 		{
-			ByteBuffer content = data.getContent ().buf ();
+			try {
+				ByteBuffer content = data.getContent ().buf ();
 
-			byte[] contentBytes = new byte[content.remaining()];
-			content.get (contentBytes);
+				byte[] contentBytes = new byte[content.remaining()];
+				content.get (contentBytes);
 
-			string contentStr = Encoding.UTF8.GetString (contentBytes);
+				string contentStr = Encoding.UTF8.GetString (contentBytes);
 
-			string[] octantsStr = contentStr.Split ('\n');
-			int i = 0;
+				string[] octantsStr = contentStr.Split ('\n');
+				int i = 0;
 
-			foreach (string str in octantsStr) {
-				if (str != "") {
-					string[] namesStr = str.Split (' ');
+				foreach (string str in octantsStr) {
+					if (str != "") {
+						string[] namesStr = str.Split (' ');
 
-					List<int> index = CommonUtility.getListFromString (namesStr [namesStr.Length - 1]);
+						List<int> index = CommonUtility.getListFromString (namesStr [namesStr.Length - 1]);
 
-					Octant oct = instance_.getOctantByIndex (index);
-					if (oct != null && oct.isTracking()) {
-						for (i = 0; i < namesStr.Length - 1; i++) {
-							if (!oct.getNameDataset ().containsName (namesStr [i])) {
-								// TODO: express position interest using all the names received in the data packet that current instance does not have
-								Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+						Octant oct = instance_.getOctantByIndex (index);
+						if (oct != null && oct.isTracking()) {
+							for (i = 0; i < namesStr.Length - 1; i++) {
+								if (!oct.getNameDataset ().containsName (namesStr [i])) {
+									// TODO: express position interest using all the names received in the data packet that current instance does not have
+									Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+								}
 							}
 						}
 					}
 				}
 			}
-
+			catch {
+				Console.WriteLine ("Did not receive octant name data");
+			}
 			return;
 		}
 
-		public virtual void onData (Interest interest, Data data)
+		public void onData (Interest interest, Data data)
 		{
 			ByteBuffer content = data.getContent ().buf ();
 
@@ -74,13 +78,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			++callbackCount_;
 			Console.WriteLine ("Data received: " + contentStr);
-			parseData (interest, data);
+			parseContent (interest, data);
 		}
 
 		public int callbackCount_;
 		private Instance instance_;
 
-		public virtual void onTimeout (Interest interest)
+		public void onTimeout (Interest interest)
 		{
 			++callbackCount_;
 			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
@@ -127,7 +131,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="interest">The incoming interest that contains the digest field in question.</param> 
 		public List<Octant> parseDigest(Interest interest)
 		{
-			string interestNameStr = interest.toUri ();
+			string interestNameStr = interest.getName().toUri ();
 			string[] nameComponentStr = interestNameStr.Split ('/');
 
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
@@ -218,6 +222,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
+			Console.WriteLine ("Interest received: " + interest.toUri());
+
 			++responseCount_;
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
@@ -653,14 +659,23 @@ namespace remap.NDNMOG.DiscoveryModule
 				for (i = 0; i<interestExpressionOctants_.Count; i++)
 				{
 					interest = constructBdcastInterest(Constants.AlephPrefix, interestExpressionOctants_[i]);
-					long pid = face_.expressInterest (interest, dataHandle);
+
+					// interesting notes: the override with name as first component times out, the override with default constructed interest as first component does not time out
+					long pid = face_.expressInterest (interest.getName(), dataHandle, dataHandle);
+
 					interest.setMustBeFresh (true);
-					interest.setInterestLifetimeMilliseconds (3000);
+					interest.setInterestLifetimeMilliseconds (Constants.BroadcastInterval);
 
 					Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri());
 
-					// Add the main event loop here, as TestEchoConsumer did? It's already included in discovery function
-					Thread.Sleep (Constants.BroadcastInterval);
+					//Thread.Sleep (Constants.BroadcastInterval);
+
+					while (dataHandle.callbackCount_ < 1) {
+						//while (true){
+						face_.processEvents ();
+						System.Threading.Thread.Sleep (5);
+					}
+					dataHandle.callbackCount_ = 0;
 				}
 			}
 		}
@@ -683,6 +698,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				{
 					Name prefix = new Name(Constants.AlephPrefix + trackingPrefixes_[i]);
 					face_.registerPrefix (prefix, interestHandle, interestHandle);
+					Console.WriteLine("Prefix registered : " + prefix.toUri());
 				}
 
 				// Thread for expressing interest.
@@ -691,12 +707,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				// The main event loop.  
 				// Wait to receive one interest for the prefix.
-				// while (interestHandle.responseCount_ < 1) {
-				while (true){
-					face_.processEvents ();
-					System.Threading.Thread.Sleep (15);
-				}
 
+				//while (interestHandle.responseCount_ < 1) {
+
+				while (true){
+					//face_.processEvents ();
+					System.Threading.Thread.Sleep (5000);
+				}
 			} catch (Exception e) {
 				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}
