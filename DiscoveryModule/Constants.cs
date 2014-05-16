@@ -12,6 +12,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const string XorDebugKey = "debug";
 
 		public const string BroadcastPrefix = "/ndn/broadcast/apps/Matryoshka/";
+		// use this prefix when peers are all conneceted via aleph.ndn.ucla.edu;
+		// so that the data can be directed back.
+		public const string AlephPrefix = "/ndn/edu/ucla/remap/apps/Matryoshka/";
+
 		public const int octOffset = 4;
 
 		public const int octreeLevel = 8;
@@ -21,6 +25,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const byte isWhole = 0x31;
 		public const byte isPart = 0x30;
 		public const byte padding = 0x00;
+
+		// Interval for broadcasting discovery interests
+		public const int BroadcastInterval = 10000;
 
 		public const int rootIndex = -1;
 	}

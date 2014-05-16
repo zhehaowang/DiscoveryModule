@@ -1,5 +1,9 @@
 ﻿using System;
 using System.Text;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+
 using net.named_data.jndn;
 using net.named_data.jndn.util;
 using net.named_data.jndn.transport;
@@ -7,9 +11,6 @@ using net.named_data.jndn.security;
 using net.named_data.jndn.security.identity;
 using net.named_data.jndn.security.policy;
 using net.named_data.jndn.tests;
-using System.Collections.Generic;
-
-using System.Collections;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -64,7 +65,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public virtual void onData (Interest interest, Data data)
 		{
+			ByteBuffer content = data.getContent ().buf ();
+
+			byte[] contentBytes = new byte[content.remaining()];
+			content.get (contentBytes);
+
+			string contentStr = Encoding.UTF8.GetString (contentBytes);
+
 			++callbackCount_;
+			Console.WriteLine ("Data received: " + contentStr);
 			parseData (interest, data);
 		}
 
@@ -252,7 +261,18 @@ namespace remap.NDNMOG.DiscoveryModule
 		private List<string> trackingPrefixes_;
 
 		// The list of octants to express interest towards
-		private List<string> interestExpressionOctants_;
+		private List<Octant> interestExpressionOctants_;
+		//private List<string> interestExpressionOctants_;
+
+		// The thread that handles interestExpression
+		private Thread tInterestExpression_;
+
+		// Keychain for face localhost and default certificate name, instantiated along with instance class
+		private KeyChain keyChain_;
+		private Name certificateName_;
+
+		// Always using default face_ localhost
+		private Face face_;
 
 		/// <summary>
 		/// Instance class is supposed to be generated from an initial position of the player,
@@ -262,6 +282,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance (List<int> index, string name)
 		{
+			// Instantiate location and assign name
+			trackingPrefixes_ = new List<string> ();
+			interestExpressionOctants_ = new List<Octant> ();
+
 			if (index.Count != Constants.octreeLevel) {
 				Console.WriteLine ("Cannot instantiate from non-leaf location.");
 				return;
@@ -285,6 +309,24 @@ namespace remap.NDNMOG.DiscoveryModule
 			temp.addChild (temp1);
 
 			name_ = name;
+
+			// Instantiate keyChain_ and certificateName_
+			face_ = new Face ("localhost");
+
+			MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
+			MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();
+			keyChain_ = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
+				new SelfVerifyPolicyManager (identityStorage));
+			keyChain_.setFace (face_);
+
+			// Initialize the storage.
+
+			Name keyName = new Name ("/testname/DSK-123");
+			certificateName_ = keyName.getSubName (0, keyName.size () - 1).append ("KEY").append (keyName.get (-1)).append ("ID-CERT").append ("0");
+			identityStorage.addKey (keyName, KeyType.RSA, new Blob (TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, false));
+
+			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
+
 		}
 
 		/// <summary>
@@ -330,7 +372,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			while (q.Count != 0) {
 				temp = (Octant)q.Dequeue ();
-				Console.WriteLine (temp.getIndex() + " ");
+				Console.Write (temp.getIndex() + "\t");
 
 				if (!temp.isLeaf ()) {
 					temp = temp.leftChild ();
@@ -340,6 +382,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					}
 				}
 			}
+			Console.WriteLine ();
 			return;
 		}
 
@@ -383,17 +426,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			return temp;
 		}
 
-		/// <summary>
-		/// Constructs the bdcast interest for a certain octant. 
-		/// The method first checks the local digest of the octant, append it after "isWhole" byte,
-		/// And use Base64 to encode the bytes and get a string to append as the last name component.
-		/// </summary>
-		/// <returns>Interest constructed</returns>
-		/// <param name="oct">The octant indices to express interest towards</param>
-		public Interest constructBdcastInterest(List<int> index)
+		public Interest constructBdcastInterest(string prefix, Octant oct)
 		{
-			Octant oct = getOctantByIndex (index);
-
 			//ASCII '1' stands for isWholeSet; 0 is appended so that base64 for UInt32 does not need padding
 			byte[] isWhole = { Constants.isWhole };
 			byte[] padding = { Constants.padding };
@@ -419,12 +453,25 @@ namespace remap.NDNMOG.DiscoveryModule
 			//string digestStr = isWhole + digest.ToString ("D8");
 			string digestStr = Convert.ToBase64String (fullBytes);
 			digestStr = digestStr.Replace ('/', '_');
-			string indexStr = CommonUtility.getStringFromList (index);
+			string indexStr = oct.getListIndexAsString();
 
-			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
+			Name name = new Name (prefix + indexStr + digestStr);
 			Interest interest = new Interest (name);
 
 			return interest;
+		}
+
+		/// <summary>
+		/// Constructs the bdcast interest for a certain octant. 
+		/// The method first checks the local digest of the octant, append it after "isWhole" byte,
+		/// And use Base64 to encode the bytes and get a string to append as the last name component.
+		/// </summary>
+		/// <returns>Interest constructed</returns>
+		/// <param name="oct">The octant indices to express interest towards</param>
+		public Interest constructBdcastInterest(string prefix, List<int> index)
+		{
+			Octant oct = getOctantByIndex (index);
+			return constructBdcastInterest (prefix, oct);
 		}
 
 		/// <summary>
@@ -436,7 +483,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns>The bdcast interest.</returns>
 		/// <param name="index">The index of parent octant.</param> 
 		/// <param name="childs">The relative 2D index array of childs to the parent octant.</param> 
-		public Interest constructBdcastInterest(List<int> index, List<int>[] childs)
+		public Interest constructBdcastInterest(string prefix, List<int> index, List<int>[] childs)
 		{
 			// Since neither the padding constant nor the digest length is likely to change, doing it in the way below is ridiculous
 			int childNum = childs.Length;
@@ -509,7 +556,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			digestStr = digestStr.Replace ('/', '_');
 
 			string indexStr = CommonUtility.getStringFromList (index);
-			Name name = new Name (Constants.BroadcastPrefix + indexStr + digestStr);
+			Name name = new Name (prefix + indexStr + digestStr);
 			Interest interest = new Interest (name);
 			return interest;
 		}
@@ -541,10 +588,11 @@ namespace remap.NDNMOG.DiscoveryModule
 				trackingPrefixes_.Add (filterPrefixStr);
 			}
 
-			// express interest for itself
-			string interestPrefixStr = oct.getListIndexAsString ();
-			if (!interestExpressionOctants_.Contains (interestPrefixStr)) {
-				interestExpressionOctants_.Add (interestPrefixStr);
+			// add itself to the list of strings to express interest towards;
+			// TODO: change to detection of whether aggregation is needed to minimize the amount of interest sent
+			// TODO: Test if oct equals(contains) method works
+			if (!interestExpressionOctants_.Contains (oct)) {
+				interestExpressionOctants_.Add (oct);
 			}
 
 			oct.startTracking ();
@@ -581,10 +629,39 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 
 			// stop expressing interest for itself
-			string interestPrefixStr = oct.getListIndexAsString ();
-			idx = interestExpressionOctants_.IndexOf (interestPrefixStr);
+			// TODO: change to detection of whether aggregation is needed to minimize the amount of interest sent
+			// TODO: Test if oct equals(contains) method works
+			idx = interestExpressionOctants_.IndexOf (oct);
 			if (idx != -1) {
 				interestExpressionOctants_.RemoveAt(idx);
+			}
+		}
+
+		/// <summary>
+		/// The function executed by thread. It broadcasts discovery interest periodically.
+		/// </summary>
+		public void discoveryExpressInterest()
+		{
+			// TODO: test this method
+
+			int i = 0;
+			Interest interest = new Interest();
+
+			// Data interface does not need keyChain_ or certificateName_, yet
+			DataInterface dataHandle = new DataInterface (this);
+			while (true) {
+				for (i = 0; i<interestExpressionOctants_.Count; i++)
+				{
+					interest = constructBdcastInterest(Constants.AlephPrefix, interestExpressionOctants_[i]);
+					long pid = face_.expressInterest (interest, dataHandle);
+					interest.setMustBeFresh (true);
+					interest.setInterestLifetimeMilliseconds (3000);
+
+					Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri());
+
+					// Add the main event loop here, as TestEchoConsumer did? It's already included in discovery function
+					Thread.Sleep (Constants.BroadcastInterval);
+				}
 			}
 		}
 
@@ -594,43 +671,34 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void discovery ()
 		{
 			try {
-				Face face = new Face ("localhost");
 
-				MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
-				MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();
-				KeyChain keyChain = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
-					                   new SelfVerifyPolicyManager (identityStorage));
-				keyChain.setFace (face);
-
-				// Initialize the storage.
-				Name keyName = new Name ("/testname/DSK-123");
-				Name certificateName = keyName.getSubName (0, keyName.size () - 1).append ("KEY").append (keyName.get (-1)).append ("ID-CERT").append ("0");
-				identityStorage.addKey (keyName, KeyType.RSA, new Blob (TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, false));
-
-				privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
-
-				InterestInterface interestHandle = new InterestInterface (keyChain, certificateName, this);
+				InterestInterface interestHandle = new InterestInterface (keyChain_, certificateName_, this);
 
 				// TODO: Implement which octant to express interest towards; and how to express interest towards it:
 				// Cross thread access of variable interestExpressOctants...
 				// And implement which octant to register prefix for...register prefix here? or in track/untrackOctant? 
+				int i = 0;
 
-				Name prefix = new Name ("/unitytest");
+				for (i = 0; i<trackingPrefixes_.Count; i++)
+				{
+					Name prefix = new Name(Constants.AlephPrefix + trackingPrefixes_[i]);
+					face_.registerPrefix (prefix, interestHandle, interestHandle);
+				}
 
-				Console.WriteLine ("Register prefix  " + prefix.toUri ());
-				face.registerPrefix (prefix, interestHandle, interestHandle);
+				// Thread for expressing interest.
+				tInterestExpression_ = new Thread(this.discoveryExpressInterest);
+				tInterestExpression_.Start();
 
 				// The main event loop.  
 				// Wait to receive one interest for the prefix.
-				while (interestHandle.responseCount_ < 1) {
-					face.processEvents ();
-
-					// We need to sleep for a few milliseconds so we don't use 100% of 
-					//   the CPU.
-					System.Threading.Thread.Sleep (5);
+				// while (interestHandle.responseCount_ < 1) {
+				while (true){
+					face_.processEvents ();
+					System.Threading.Thread.Sleep (15);
 				}
+
 			} catch (Exception e) {
-				Console.WriteLine ("exception: " + e.Message);
+				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}
 		}
 	}
