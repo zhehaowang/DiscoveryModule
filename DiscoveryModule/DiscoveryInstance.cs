@@ -197,7 +197,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns>The digest.</returns>
 		/// <param name="octants">A list of octants belonging to the current instance.</param>
 		/// <param name="interest">Given interest to which the generated data responds.</param> 
-		public Data generateData(Interest interest, List<Octant> octants)
+		public Data constructData(Interest interest, List<Octant> octants)
 		{
 			// Make and sign a Data packet.
 			Data data = new Data (interest.getName ());
@@ -212,7 +212,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			data.setContent (new Blob (Encoding.UTF8.GetBytes (content)));
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
-			data.getMetaInfo ().setFreshnessPeriod (Constants.DataFreshnessSeconds);
+			data.getMetaInfo ().setFreshnessSeconds (Constants.DataFreshnessSeconds);
 
 			try {
 				keyChain_.sign (data, certificateName_);
@@ -229,7 +229,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			++responseCount_;
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
-				Data data = generateData (interest, octants);
+				Data data = constructData (interest, octants);
 				Blob encodedData = data.wireEncode ();
 
 				try {
@@ -650,8 +650,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		public void discoveryExpressInterest()
 		{
-			// TODO: test this method
-
 			int i = 0;
 			Interest interest = new Interest();
 			int sleepSeconds = 0; 
@@ -663,11 +661,11 @@ namespace remap.NDNMOG.DiscoveryModule
 				{
 					interest = constructBdcastInterest(Constants.AlephPrefix, interestExpressionOctants_[i]);
 
-					// interesting notes: the override with name as first component times out, the override with default constructed interest as first component does not time out
-					long pid = face_.expressInterest (interest.getName(), dataHandle, dataHandle);
-
 					interest.setMustBeFresh (true);
 					interest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
+
+					// interesting notes: the override with name as first component times out, the override with default constructed interest as first component does not time out
+					long pid = face_.expressInterest (interest, dataHandle, dataHandle);
 
 					Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri());
 

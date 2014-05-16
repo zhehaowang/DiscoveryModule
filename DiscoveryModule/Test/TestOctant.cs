@@ -33,7 +33,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			List<int> startingLoc = new List<int> () {
 				3, 1, 4, 3,
-				4, 5, 6, 4
+				4, 5, 6, 3
 			};
 
 			List<int> parentLoc = new List<int> () {
@@ -62,7 +62,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Instance instance = new Instance (startingLoc, "cantbelieve");
+			Instance instance = new Instance (startingLoc, "alan");
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -123,7 +123,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			List<Octant> octants = ii.parseDigest (interest1);
 			if (octants.Count != 0) {
 				// for debugging and not actual network tranmission, using new Interest() in generateData/parseData won't cause problems
-				Data data = ii.generateData (new Interest(), octants);
+				Data data = ii.constructData (new Interest(), octants);
 				DataInterface di = new DataInterface (instance);
 
 				// in this test, because instance is not tracking childLoc[1], though data belonging to the oct is returned, 
