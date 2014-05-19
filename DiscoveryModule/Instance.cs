@@ -39,8 +39,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		private List<Octant> interestExpressionOctants_;
 		//private List<string> interestExpressionOctants_;
 
-		// The thread that handles interestExpression
+		// The thread that handles broadcast interest expression
 		private Thread tInterestExpression_;
+		// The thread that handles posititon interest expression
+		private Thread tPositionInterestExpression_;
 
 		// Keychain for face localhost and default certificate name, instantiated along with instance class
 		private KeyChain keyChain_;
@@ -123,6 +125,10 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
+			// Register prefix for position related interest of self
+			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PositionPrefix + name);
+			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (positionKeyChain_, certificateName_, this);
+			positionFace_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 		}
 
 		/// <summary>
@@ -502,6 +508,9 @@ namespace remap.NDNMOG.DiscoveryModule
 				tInterestExpression_ = new Thread(this.discoveryExpressInterest);
 				tInterestExpression_.Start();
 
+				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
+				tPositionInterestExpression_.Start();
+
 				// The main event loop.  
 				// Wait to receive one interest for the prefix.
 
@@ -534,6 +543,39 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 			return null;
+		}
+
+		/// <summary>
+		/// Express position interest with positionFace_ towards given name
+		/// </summary>
+		/// <param name="name">Name.</param>
+		public void positionExpressInterest()
+		{
+			int count = gameEntities_.Count;
+			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
+
+			while (true) {
+				positionDataInterface.callbackCount_ = 0;
+				// count is for the cross-thread reference of gameEntities does not go wrong...
+				for (int i = 0; i < count; i++) {
+					// Position interest name is assumed to be only the Prefix + EntityName for now
+					Name interestName = new Name (Constants.AlephPrefix + Constants.PositionPrefix + gameEntities_ [i].getName ());
+					Interest interest = new Interest (interestName);
+
+					// Assuming the lifetime for interest is also the same amount as position data freshness period
+					interest.setInterestLifetimeMilliseconds (Constants.PosititonDataFreshnessMilliSeconds);
+					interest.setMustBeFresh (true);
+
+					positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
+				}
+
+				while (positionDataInterface.callbackCount_ < count) {
+					//while (true){
+					positionFace_.processEvents ();
+					System.Threading.Thread.Sleep (10);
+				}
+			}
+
 		}
 	}
 }

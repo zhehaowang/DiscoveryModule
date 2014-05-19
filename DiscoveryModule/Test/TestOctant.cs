@@ -132,7 +132,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			}
 
 			// Let's initiate discovery, this method starts a new thread which deals with interest expression and event loop
-			// Another problem: there is not always an event loop going on.
+			// Another problem: there is not always an event loop going on, need modification for discovery main loop strategy
 			instance.discovery ();
 
 			// instance is interested in its starting location
