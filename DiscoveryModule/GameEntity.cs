@@ -62,14 +62,14 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			name_ = name;
 			entityType_ = entityType;
-			setLocation (0, 0, 0);
+			location_ = new Vector3 (0, 0, 0);
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
 		{
 			name_ = name;
 			entityType_ = entityType;
-			setLocation (x, y, z);
+			location_ = new Vector3 (x, y, z);
 		}
 
 		public string getName()
