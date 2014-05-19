@@ -140,7 +140,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			instance.trackOctant (instance.getOctantByIndex(startingLoc));
 
 			while (true) {
-				System.Threading.Thread.Sleep (5000);
+				instance.getSelfGameEntity ().setLocation (location.x_ + (new Random().Next(-5, 5)), location.y_ + (new Random().Next(-5, 5)), location.z_ + (new Random().Next(-5, 5)));
+				System.Threading.Thread.Sleep (1000);
 			}
 			//InterestInterface.parseDigest (interest1);
 		}
