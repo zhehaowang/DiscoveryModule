@@ -62,8 +62,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Vector3 location = new Vector3 (20, 30, 40);
-			Instance instance = new Instance (startingLoc, "ramsay", location);
+			Vector3 location = new Vector3 (20, 0, 0);
+			Instance instance = new Instance (startingLoc, "shirt", location);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc

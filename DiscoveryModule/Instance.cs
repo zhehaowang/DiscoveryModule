@@ -553,10 +553,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			int count = gameEntities_.Count;
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
+			int sleepSeconds = 0;
 
 			while (true) {
 				count = gameEntities_.Count;
-				positionDataInterface.callbackCount_ = 0;
 				// count is for the cross-thread reference of gameEntities does not go wrong...
 				for (int i = 0; i < count; i++) {
 					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
@@ -565,8 +565,7 @@ namespace remap.NDNMOG.DiscoveryModule
 						Name interestName = new Name (Constants.AlephPrefix + Constants.PositionPrefix + gameEntities_ [i].getName ());
 						Interest interest = new Interest (interestName);
 
-						// Assuming the lifetime for interest is also the same amount as position data freshness period
-						interest.setInterestLifetimeMilliseconds (Constants.PosititonDataFreshnessMilliSeconds);
+						interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
 						interest.setMustBeFresh (true);
 
 						positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
@@ -580,9 +579,20 @@ namespace remap.NDNMOG.DiscoveryModule
 					//while (true){
 					positionFace_.processEvents ();
 					System.Threading.Thread.Sleep (10);
+					sleepSeconds += 10;
+				}
+
+				positionDataInterface.callbackCount_ = 0;
+
+				// give the peer some time(3s) for it to process the unique names received, 
+				// and confirm with those unique names whether they are in my vicinity or not.
+				// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
+				int interval = Constants.PositionIntervalMilliSeconds - sleepSeconds;
+				sleepSeconds = 0;
+				if (interval > 0) {
+					Thread.Sleep (interval);
 				}
 			}
-
 		}
 	}
 }

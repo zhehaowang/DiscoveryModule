@@ -30,15 +30,20 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const byte isPart = 0x30;
 		public const byte padding = 0x00;
 
-		// Interval for broadcasting discovery interests if interest times out
+		// Time out value for broadcast discovery interest
 		public const int BroadcastTimeoutMilliSeconds = 10000;
-		// Interval for broadcasting discovery interests if interest brought back unique names
+		// Interval for broadcast discovery interests if interest brought back unique names
 		public const int BroadcastIntervalMilliSeconds = 3000;
+
+		// Time out value for position update interest
+		public const int PositionTimeoutMilliSeconds = 300;
+		// Interval for position update if it brought back position data
+		public const int PositionIntervalMilliSeconds = 300;
 
 		// Freshness period for broadcast digest data
 		public const int DigestDataFreshnessSeconds = 20;
-		// Freshness period for postion update data
-		public const int PosititonDataFreshnessMilliSeconds = 200;
+		// Alternative...Weird enough, freshnessmillisecond doesn't work with setFreshnessPeriod...Should test more some time
+		public const int PosititonDataFreshnessSeconds = 1;
 
 		public const int rootIndex = -1;
 	}

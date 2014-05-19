@@ -37,12 +37,12 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
-			string returnContent = location.x_ + "," + location.y_ + "," + location.z_;
+			string returnContent = location.ToString();
 
 			Data data = new Data (prefix);
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
-			data.getMetaInfo ().setFreshnessPeriod (Constants.PosititonDataFreshnessMilliSeconds);
+			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
 
 			try {
 				keyChain_.sign (data, certificateName_);
@@ -92,7 +92,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			++callbackCount_;
-			Console.WriteLine ("Data received: " + contentStr);
+			Console.WriteLine ("Data received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
 
 			string dataNameURI = data.getName ().toUri();
 			string[] splitString = dataNameURI.Split ('/');

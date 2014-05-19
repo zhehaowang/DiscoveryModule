@@ -46,8 +46,11 @@ namespace remap.NDNMOG.DiscoveryModule
 								if (!oct.getNameDataset ().containsName (namesStr [i])) {
 									// TODO: express position interest using all the names received in the data packet that current instance does not have
 									Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
-									GameEntity gameEntity = new GameEntity(namesStr[i], EntityType.Player);
-									instance_.getOtherGameEntities().Add(gameEntity);
+									if (instance_.getGameEntityByName(namesStr[i]) == null)
+									{
+										GameEntity gameEntity = new GameEntity(namesStr[i], EntityType.Player);
+										instance_.getOtherGameEntities().Add(gameEntity);
+									}
 								}
 							}
 						}
@@ -70,7 +73,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			++callbackCount_;
-			Console.WriteLine ("Data received: " + contentStr);
+			Console.WriteLine ("Data received: " + contentStr + " Data freshness period : " + data.getMetaInfo().getFreshnessPeriod());
 			parseContent (interest, data);
 		}
 
