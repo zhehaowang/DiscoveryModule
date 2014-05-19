@@ -62,7 +62,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Instance instance = new Instance (startingLoc, "alan");
+			Instance instance = new Instance (startingLoc, "duke");
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -118,24 +118,29 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
-			InterestInterface ii = new InterestInterface (keyChain, certificateName, instance1);
+			DiscoveryInterestInterface ii = new DiscoveryInterestInterface (keyChain, certificateName, instance1);
 
 			List<Octant> octants = ii.parseDigest (interest1);
 			if (octants.Count != 0) {
 				// for debugging and not actual network tranmission, using new Interest() in generateData/parseData won't cause problems
 				Data data = ii.constructData (new Interest(), octants);
-				DataInterface di = new DataInterface (instance);
+				DiscoveryDataInterface di = new DiscoveryDataInterface (instance);
 
 				// in this test, because instance is not tracking childLoc[1], though data belonging to the oct is returned, 
 				// it does not get shown in debug or used for constructing position interest in later processes.
 				di.parseContent (new Interest(), data);
 			}
 
+			// Let's initiate discovery, this method starts a new thread which deals with interest expression and event loop
+			// Another problem: there is not always an event loop going on.
+			instance.discovery ();
+
 			// instance is interested in its starting location
 			instance.trackOctant (instance.getOctantByIndex(startingLoc));
 
-			// Let's initiate discovery.
-			instance.discovery ();
+			while (true) {
+				System.Threading.Thread.Sleep (5000);
+			}
 			//InterestInterface.parseDigest (interest1);
 		}
 	}
