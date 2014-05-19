@@ -65,6 +65,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (0, 0, 0);
 		}
 
+		public GameEntity (string name, EntityType entityType, Vector3 location)
+		{
+			name_ = name;
+			entityType_ = entityType;
+			location_ = new Vector3 (location);
+		}
+
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
 		{
 			name_ = name;

@@ -62,7 +62,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Instance instance = new Instance (startingLoc, "duke");
+			Vector3 location = new Vector3 (20, 30, 40);
+			Instance instance = new Instance (startingLoc, "ramsay", location);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -96,7 +97,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Console.WriteLine (interest1.toUri ());
 
 			// assumes that another instance receives the above constructed interest, and tries to decode and decide what to return.
-			Instance instance1 = new Instance (startingLoc, "anotherinstance");
+			Instance instance1 = new Instance (startingLoc, "anotherinstance", location);
 			// test for constructing data packet for given interest.
 			Face face = new Face ("localhost");
 

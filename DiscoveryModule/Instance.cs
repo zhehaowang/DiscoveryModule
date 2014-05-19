@@ -68,9 +68,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
-		public Instance (List<int> index, string name)
+		public Instance (List<int> index, string name, Vector3 location)
 		{
-			selfEntity_ = new GameEntity (name, EntityType.Player);
+			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 
 			gameEntities_ = new List<GameEntity> ();
 
@@ -555,18 +555,25 @@ namespace remap.NDNMOG.DiscoveryModule
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
 
 			while (true) {
+				count = gameEntities_.Count;
 				positionDataInterface.callbackCount_ = 0;
 				// count is for the cross-thread reference of gameEntities does not go wrong...
 				for (int i = 0; i < count; i++) {
-					// Position interest name is assumed to be only the Prefix + EntityName for now
-					Name interestName = new Name (Constants.AlephPrefix + Constants.PositionPrefix + gameEntities_ [i].getName ());
-					Interest interest = new Interest (interestName);
+					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
+					if (gameEntities_ [i] != null) {
+						// Position interest name is assumed to be only the Prefix + EntityName for now
+						Name interestName = new Name (Constants.AlephPrefix + Constants.PositionPrefix + gameEntities_ [i].getName ());
+						Interest interest = new Interest (interestName);
 
-					// Assuming the lifetime for interest is also the same amount as position data freshness period
-					interest.setInterestLifetimeMilliseconds (Constants.PosititonDataFreshnessMilliSeconds);
-					interest.setMustBeFresh (true);
+						// Assuming the lifetime for interest is also the same amount as position data freshness period
+						interest.setInterestLifetimeMilliseconds (Constants.PosititonDataFreshnessMilliSeconds);
+						interest.setMustBeFresh (true);
 
-					positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
+						positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
+					} else {
+						// We will be expecting one less data response since interest is not expressed.
+						count--;
+					}
 				}
 
 				while (positionDataInterface.callbackCount_ < count) {
