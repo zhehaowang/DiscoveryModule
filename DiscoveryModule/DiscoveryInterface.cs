@@ -46,11 +46,7 @@ namespace remap.NDNMOG.DiscoveryModule
 								if (!oct.getNameDataset ().containsName (namesStr [i])) {
 									// TODO: express position interest using all the names received in the data packet that current instance does not have
 									Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
-									if (instance_.getGameEntityByName(namesStr[i]) == null)
-									{
-										GameEntity gameEntity = new GameEntity(namesStr[i], EntityType.Player);
-										instance_.getOtherGameEntities().Add(gameEntity);
-									}
+									instance_.addGameEntityByName(namesStr[i]);
 								}
 							}
 						}

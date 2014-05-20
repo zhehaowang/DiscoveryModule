@@ -63,7 +63,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// gemerate an instance with the name of "mytest", at startingLoc
 			Vector3 location = new Vector3 (0, 0, 0);
-			Instance instance = new Instance (startingLoc, "nerdy", location);
+			Instance instance = new Instance (startingLoc, "ogrimmar", location);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc

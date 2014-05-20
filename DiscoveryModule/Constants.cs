@@ -45,6 +45,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		// Alternative...Weird enough, freshnessmillisecond doesn't work with setFreshnessPeriod...Should test more some time
 		public const int PosititonDataFreshnessSeconds = 1;
 
+		// The default timeout for mutex locks used in instance class
+		public const int MutexLockTimeoutMilliSeconds = 1000;
+
 		public const int rootIndex = -1;
 	}
 }
