@@ -46,6 +46,7 @@
     <Compile Include="PositionInterface.cs" />
     <Compile Include="Instance.cs" />
     <Compile Include="GameEntity.cs" />
+    <Compile Include="Vector3.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
