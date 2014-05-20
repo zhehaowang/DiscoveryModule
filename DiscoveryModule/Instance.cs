@@ -454,10 +454,16 @@ namespace remap.NDNMOG.DiscoveryModule
 			Interest interest = new Interest();
 			int sleepSeconds = 0; 
 
+			// Separate count from responseCount so that the loop is not messed up
+			int count = 0;
+			int responseCount = 0;
+
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this);
 			while (true) {
-				for (i = 0; i<interestExpressionOctants_.Count; i++)
+				count = interestExpressionOctants_.Count;
+				responseCount = count;
+				for (i = 0; i<count; i++)
 				{
 					// the judgment of isNull may seem unnecessary, but since this is carried out in another thread,
 					// and List<Octant>.count's change is usually before data is inserted into List, which means
@@ -474,24 +480,26 @@ namespace remap.NDNMOG.DiscoveryModule
 						long pid = face_.expressInterest (interest, dataHandle, dataHandle);
 
 						Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri ());
-
-						while (dataHandle.callbackCount_ < 1) {
-							//while (true){
-							face_.processEvents ();
-							System.Threading.Thread.Sleep (10);
-							sleepSeconds += 10;
-						}
-						dataHandle.callbackCount_ = 0;
-
-						// give the peer some time(3s) for it to process the unique names received, 
-						// and confirm with those unique names whether they are in my vicinity or not.
-						// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-						int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
-						sleepSeconds = 0;
-						if (interval > 0) {
-							Thread.Sleep (interval);
-						}
+					} else {
+						responseCount--;
 					}
+				}
+
+				while (dataHandle.callbackCount_ < responseCount) {
+					//while (true){
+					face_.processEvents ();
+					System.Threading.Thread.Sleep (10);
+					sleepSeconds += 10;
+				}
+				dataHandle.callbackCount_ = 0;
+
+				// give the peer some time(3s) for it to process the unique names received, 
+				// and confirm with those unique names whether they are in my vicinity or not.
+				// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
+				int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
+				sleepSeconds = 0;
+				if (interval > 0) {
+					Thread.Sleep (interval);
 				}
 			}
 		}
@@ -552,11 +560,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = gameEntities_.Count;
+			int responseCount = count;
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
 			int sleepSeconds = 0;
 
 			while (true) {
 				count = gameEntities_.Count;
+				responseCount = count;
 				// count is for the cross-thread reference of gameEntities does not go wrong...
 				for (int i = 0; i < count; i++) {
 					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
@@ -571,11 +581,11 @@ namespace remap.NDNMOG.DiscoveryModule
 						positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
 					} else {
 						// We will be expecting one less data response since interest is not expressed.
-						count--;
+						responseCount--;
 					}
 				}
 
-				while (positionDataInterface.callbackCount_ < count) {
+				while (positionDataInterface.callbackCount_ < responseCount) {
 					//while (true){
 					positionFace_.processEvents ();
 					System.Threading.Thread.Sleep (10);
