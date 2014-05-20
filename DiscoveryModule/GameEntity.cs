@@ -2,6 +2,11 @@
 
 namespace remap.NDNMOG.DiscoveryModule
 {
+	/// <summary>
+	/// Callback for a set location prototype function, which should be implemented in Unity
+	/// </summary>
+	public delegate bool SetPosCallback(string name);
+
 	public enum EntityType
 	{
 		Player,
@@ -54,6 +59,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			return String.Format ("{0},{1},{2}", x_, y_, z_);
 		}
+
+		public static Vector3 operator + (Vector3 v1, Vector3 v2)
+		{
+			Vector3 result = new Vector3 (v1.x_ + v2.x_, v1.y_ + v2.y_, v1.z_ + v2.z_);
+			return result;
+		}
 	}
 
 	public class GameEntity
@@ -64,12 +75,15 @@ namespace remap.NDNMOG.DiscoveryModule
 		private EntityType entityType_;
 		private int timeoutCount_;
 
+		private SetPosCallback setPosCallback_;
+
 		public GameEntity (string name, EntityType entityType)
 		{
 			name_ = name;
 			entityType_ = entityType;
 			location_ = new Vector3 (0, 0, 0);
 			timeoutCount_ = 0;
+			setPosCallback_ = null;
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location)
@@ -78,6 +92,16 @@ namespace remap.NDNMOG.DiscoveryModule
 			entityType_ = entityType;
 			location_ = new Vector3 (location);
 			timeoutCount_ = 0;
+			setPosCallback_ = null;
+		}
+
+		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
+		{
+			name_ = name;
+			entityType_ = entityType;
+			location_ = new Vector3 (location);
+			timeoutCount_ = 0;
+			setPosCallback_ = setPosCallback;
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
@@ -86,6 +110,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			entityType_ = entityType;
 			location_ = new Vector3 (x, y, z);
 			timeoutCount_ = 0;
+			setPosCallback_ = null;
 		}
 
 		public string getName()
@@ -98,9 +123,16 @@ namespace remap.NDNMOG.DiscoveryModule
 			return location_;
 		}
 
-		public void setLocation(Vector3 location)
+		public void setLocation(Vector3 location, bool invokeCallback)
 		{
 			location_ = location;
+			if (invokeCallback) {
+				if (setPosCallback_ == null) {
+					Console.WriteLine ("setPosCallback_ for setLocation function is null.");
+				} else {
+					setPosCallback_ (name_);
+				}
+			}
 		}
 
 		public void setLocation(float x, float y, float z)

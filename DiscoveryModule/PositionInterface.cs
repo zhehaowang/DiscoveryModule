@@ -113,7 +113,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (gameEntity != null) {
 				Vector3 prevLocation = gameEntity.getLocation ();
 
-				gameEntity.setLocation (location);
+				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 				gameEntity.resetTimeOut ();
 
 				// TODO: implement the following stub methods, decide whether put them in here or encapsulated as a function in instance class

@@ -53,5 +53,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// After receiving 10 timeouts in a row, the peer will be considered as dropped and therefore removed from GameEntities list and octant's name list (if exists)
 		public const int DropTimeoutCount = 10;
+
+		// Whether setPoCallback in gameEntity class is enabed in that class's setPosition function
+		public const bool InvokeSetPosCallback = false;
 	}
 }
