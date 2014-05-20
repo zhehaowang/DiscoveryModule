@@ -11,6 +11,7 @@ using net.named_data.jndn.tests;
 // discovery module is written in CSharp so it follows the CSharp namespace naming convention:
 // <Company>.(<Product>|<Technology>)[.<Feature>][.<Subnamespace>]
 using System.Text;
+using System.Collections.Generic;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -77,6 +78,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			instance_ = instance;
 		}
 
+		public string getEntityNameFromURI(string nameURI)
+		{
+			string[] splitString = nameURI.Split ('/');
+			string entityName = splitString[splitString.Length - 1];
+			return entityName;
+		}
+
 		/// <summary>
 		/// OnData assumes the name of the entity is the last component of data name, which may not hold true for later designs
 		/// </summary>
@@ -94,17 +102,44 @@ namespace remap.NDNMOG.DiscoveryModule
 			++callbackCount_;
 			Console.WriteLine ("Data received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
 
-			string dataNameURI = data.getName ().toUri();
-			string[] splitString = dataNameURI.Split ('/');
-			string entityName = splitString[splitString.Length - 1];
+			string entityName = getEntityNameFromURI (data.getName().toUri());
 
+			// since it's pointer reference, do I need to extend the mutex lock here?
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 			string[] locationStr = contentStr.Split (',');
 
 			Vector3 location = new Vector3 (locationStr);
 
 			if (gameEntity != null) {
+				Vector3 prevLocation = gameEntity.getLocation ();
+
 				gameEntity.setLocation (location);
+				gameEntity.resetTimeOut ();
+
+				// TODO: implement the following stub methods, decide whether put them in here or encapsulated as a function in instance class
+				// Cross thread reference without mutex is still a problem here.
+				List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
+
+				if (octantIndices != null) {
+					Octant oct = instance_.getOctantByIndex (octantIndices);
+					if (oct == null || (!oct.isTracking ())) {
+						// this instance does not even care about this octant for now, so this game entity is no longer cared about as well
+						// it should be removed from the list of gameEntities, and no more position interest should be issued towards it.
+					} else {
+						// Need to make sure that digestComponent if updated correctly: whether digestComponent is always generated dynamically? 
+						// or its change is triggered by events such as add or remove?
+						List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+						// And need to make sure equals method works
+						if (!octantIndices.Equals (prevIndices)) {
+							// Game entity moved from one octant to another, and both are cared about by this instance
+							oct.addName (entityName);
+							Octant prevOct = instance_.getOctantByIndex (prevIndices);
+							// NameDataset class should need MutexLock for its names
+							prevOct.removeName (entityName);
+						}
+					}
+				}
+
 			} else {
 				// Don't expect this to happen
 				Console.WriteLine("Received name (" + entityName + ") does not have a gameEntity stored locally.");
@@ -115,6 +150,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			++callbackCount_;
 			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
+			string entityName = getEntityNameFromURI (interest.getName ().toUri ());
+			if (instance_.getGameEntityByName (entityName).incrementTimeOut ()) {
+				Console.WriteLine (entityName + " could have dropped.");
+			}
 		}
 
 		public int callbackCount_;

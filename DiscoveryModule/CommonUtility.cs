@@ -41,7 +41,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Print the input list of integers as string, each element in the list is separated by /.
+		/// Print the input list of integers as string, each element in the list is separated by '/'.
 		/// Head is ignored if it's -1.
 		/// </summary>
 		/// <returns>A string that looks like "1/2/3/"</returns>
@@ -60,6 +60,12 @@ namespace remap.NDNMOG.DiscoveryModule
 			return str;
 		}
 
+		/// <summary>
+		/// Get a list of indices from an input string separated by '/'
+		/// </summary>
+		/// <returns>The list from string.</returns>
+		/// <param name="inputStr">Input string, which should look like "(/)1/2/3(/)".</param>
+		// TODO: whether the trailing / and leading / works should be further tested
 		public static List<int> getListFromString(string inputStr)
 		{
 			string[] strs = inputStr.Split ('/');
@@ -74,6 +80,13 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 			return result;
+		}
+
+		// TODO: Implement this mapping method
+		public static List<int> getOctantIndicesFromVector3(Vector3 inputVector)
+		{
+			// stub method for coordinate => octant indices mapping
+			return null;
 		}
 	}
 }

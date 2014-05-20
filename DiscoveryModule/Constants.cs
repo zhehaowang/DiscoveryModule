@@ -48,6 +48,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		// The default timeout for mutex locks used in instance class
 		public const int MutexLockTimeoutMilliSeconds = 1000;
 
+		// The assumed index of root octant in instance's octree structure
 		public const int rootIndex = -1;
+
+		// After receiving 10 timeouts in a row, the peer will be considered as dropped and therefore removed from GameEntities list and octant's name list (if exists)
+		public const int DropTimeoutCount = 10;
 	}
 }

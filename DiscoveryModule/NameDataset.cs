@@ -17,6 +17,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			names_ = new List<string> ();
 		}
 
+		public bool removeName(string name)
+		{
+			int idx = names_.IndexOf (name);
+			if (idx != -1) {
+				names_.RemoveAt (idx);
+				return true;
+			} else {
+				return false;
+			}
+		}
+
 		public void appendName(string name)
 		{
 			names_.Add (name);

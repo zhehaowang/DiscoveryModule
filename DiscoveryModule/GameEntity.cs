@@ -62,12 +62,14 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Vector3 location_;
 
 		private EntityType entityType_;
+		private int timeoutCount_;
 
 		public GameEntity (string name, EntityType entityType)
 		{
 			name_ = name;
 			entityType_ = entityType;
 			location_ = new Vector3 (0, 0, 0);
+			timeoutCount_ = 0;
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location)
@@ -75,6 +77,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			name_ = name;
 			entityType_ = entityType;
 			location_ = new Vector3 (location);
+			timeoutCount_ = 0;
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
@@ -82,6 +85,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			name_ = name;
 			entityType_ = entityType;
 			location_ = new Vector3 (x, y, z);
+			timeoutCount_ = 0;
 		}
 
 		public string getName()
@@ -110,6 +114,25 @@ namespace remap.NDNMOG.DiscoveryModule
 		public EntityType getType()
 		{
 			return entityType_;
+		}
+
+		/// <summary>
+		/// Increments the timeout count.
+		/// </summary>
+		/// <returns><c>true</c>True, if timeout received in a row reached the cap value.<c>false</c> otherwise.</returns>
+		public bool incrementTimeOut()
+		{
+			timeoutCount_++;
+			if (timeoutCount_ > Constants.DropTimeoutCount) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		public void resetTimeOut()
+		{
+			timeoutCount_ = 0;
 		}
 	}
 }

@@ -236,6 +236,25 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
+		/// Remove a name from the octant's nameDataset
+		/// </summary>
+		/// <returns>True, if successfully removed; False, otherwise</returns>
+		public bool removeName(string name)
+		{
+			if (isLeaf_) {
+				if (!nameDataset_.removeName (name)) {
+					Console.WriteLine ("Name " + name + " does not exist in octant.");
+					return false;
+				} else {
+					return true;
+				}
+			} else {
+				Console.WriteLine ("Trying to append names to a non-leaf node");
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Add a name to the octant's nameDataset.
 		/// </summary>
 		public void addName(string name)
