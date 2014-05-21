@@ -32,24 +32,24 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			*/
 
 			List<int> startingLoc = new List<int> () {
-				3, 1, 4, 3,
-				4, 5, 6, 3
+				0, 0, 0, 5,
+				6, 2, 5
 			};
 
 			List<int> parentLoc = new List<int> () {
-				3, 1, 4, 3,
-				4, 5, 6
+				0, 0, 0, 5,
+				6, 2
 			};
 
 			List<int> anotherLoc = new List<int> () {
 				3, 1, 4, 3,
-				4, 5, 2, 1
+				4, 5, 2
 			};
 
 			List<int>[] childLoc = new List<int>[2];
 
 			childLoc [0] = new List<int> () {
-				4
+				5
 			};
 
 			childLoc [1] = new List<int> () {
@@ -63,7 +63,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// gemerate an instance with the name of "mytest", at startingLoc
 			Vector3 location = new Vector3 (0, 0, 0);
-			Instance instance = new Instance (startingLoc, "hearth", location);
+			Instance instance = new Instance (startingLoc, "brandenburg", location, null);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -97,7 +97,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Console.WriteLine (interest1.toUri ());
 
 			// assumes that another instance receives the above constructed interest, and tries to decode and decide what to return.
-			Instance instance1 = new Instance (startingLoc, "anotherinstance", location);
+			Instance instance1 = new Instance (startingLoc, "anotherinstance", location, null);
 			// test for constructing data packet for given interest.
 			Face face = new Face ("localhost");
 

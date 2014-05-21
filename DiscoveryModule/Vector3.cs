@@ -34,10 +34,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				Console.WriteLine ("Length of vectorStr is not correct.");
 				return;
 			}
-			float x = 0;
-			float y = 0;
-			float z = 0;
-			if (!(float.TryParse(vectorStr[0], out x) && float.TryParse(vectorStr[1], out y) && float.TryParse(vectorStr[2], out z)))
+			if (!(float.TryParse(vectorStr[0], out x_) && float.TryParse(vectorStr[1], out y_) && float.TryParse(vectorStr[2], out z_)))
 			{
 				Console.WriteLine ("Error parsing float from vectorStr");
 				return;
@@ -47,6 +44,19 @@ namespace remap.NDNMOG.DiscoveryModule
 		public override string ToString()
 		{
 			return String.Format ("{0},{1},{2}", x_, y_, z_);
+		}
+
+		public override bool Equals (object obj)
+		{
+			Vector3 vector3 = (Vector3)obj;
+			if (x_ == vector3.x_ && y_ == vector3.y_ && z_ == vector3.z_)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		}
 
 		public static Vector3 operator + (Vector3 v1, Vector3 v2)

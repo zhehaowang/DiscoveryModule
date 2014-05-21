@@ -22,7 +22,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public const int octOffset = 4;
 
-		public const int octreeLevel = 8;
+		public const int octreeLevel = 7;
 		// interest can only be expressed towards the lowest 2 levels of the octant.
 		public const int validOctreeLevel = 2;
 
@@ -55,6 +55,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int DropTimeoutCount = 10;
 
 		// Whether setPoCallback in gameEntity class is enabed in that class's setPosition function
-		public const bool InvokeSetPosCallback = false;
+		public const bool InvokeSetPosCallback = true;
+
+		// Default location for newly initiated entities
+		public const float DefaultLocationNewEntity = -1;
+
+		// Drop code for dropped entities
+		public const float DefaultLocationDropEntity = -2;
 	}
 }

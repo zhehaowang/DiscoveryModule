@@ -65,15 +65,19 @@ namespace remap.NDNMOG.DiscoveryModule
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
 
+		// The callback given by Unity to this instance
+		private SetPosCallback setPosCallback_;
+
 		/// <summary>
 		/// Instance class is supposed to be generated from an initial position of the player,
 		/// which is a list of integers; and a string name, which is the name of the player(instance).
 		/// </summary>
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
-		public Instance (List<int> index, string name, Vector3 location)
+		public Instance (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback)
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
+			setPosCallback_ = setPosCallback;
 
 			gameEntities_ = new List<GameEntity> ();
 
@@ -518,6 +522,20 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		public void stopDiscovery()
+		{
+			if (tInterestExpression_.IsAlive) {
+				tInterestExpression_.Abort ();
+			} else {
+				Console.WriteLine ("tInterestExpression is not alive");
+			}
+			if (tPositionInterestExpression_.IsAlive) {
+				tPositionInterestExpression_.Abort ();
+			} else {
+				Console.WriteLine ("tPositionInterestExpression_ is not alive");
+			}
+		}
+
 		/// <summary>
 		/// Discovery sends broadcast discovery interest periodically.
 		/// </summary>
@@ -555,7 +573,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public bool addGameEntityByName(string name)
 		{
 			if (getGameEntityByName (name) == null) {
-				GameEntity gameEntity = new GameEntity (name, EntityType.Player);
+				GameEntity gameEntity = new GameEntity (name, EntityType.Player, new Vector3(Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity), setPosCallback_);
 				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.Add (gameEntity);
 				gameEntitiesLock_.ReleaseMutex ();

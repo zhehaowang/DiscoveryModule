@@ -69,6 +69,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public static List<int> getListFromString(string inputStr)
 		{
 			string[] strs = inputStr.Split ('/');
+
 			List<int> result = new List<int> ();
 			int temp = 0;
 			foreach(string str in strs)
@@ -87,8 +88,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			// stub method for coordinate => octant indices mapping
 			string indexStr = GetLabel (inputVector);
-			List<int> index = getListFromString (indexStr);
-			return index;
+			//Console.WriteLine (indexStr);
+
+			//List<int> index = getListFromString (indexStr);
+			//return index;
+			return getListFromString (indexStr);
 		}
 
 		public static string GetLabel(Vector3 position)

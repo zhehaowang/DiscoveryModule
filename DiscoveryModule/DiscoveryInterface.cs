@@ -103,8 +103,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			int res = 0;
 			for (i = Constants.octOffset; i < interestURI.Length - 1; i++) {
 				if (int.TryParse (interestURI [i],out res)) {
-					// legal octant index range is from 1 to 8
-					if (res > 0 && res < 9) {
+					// legal octant index range is from 0 to 7
+					if (res >= 0 && res < 8) {
 						index.Add (res);
 					}
 				}
@@ -205,7 +205,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
 			data.getMetaInfo ().setFreshnessSeconds (Constants.DigestDataFreshnessSeconds);
-
+			Console.WriteLine ("Data content it : " + content);
 			try {
 				keyChain_.sign (data, certificateName_);
 			} catch (SecurityException exception) {

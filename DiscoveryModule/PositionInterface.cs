@@ -112,6 +112,12 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			if (gameEntity != null) {
 				Vector3 prevLocation = gameEntity.getLocation ();
+				// only x_ should be enough, need to work with the actual boundary of the game though
+				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.y_ == Constants.DefaultLocationDropEntity) {
+					prevLocation = new Vector3 (0, 0, 0);
+				}
+
+				Console.WriteLine (prevLocation);
 
 				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 				gameEntity.resetTimeOut ();
@@ -128,15 +134,15 @@ namespace remap.NDNMOG.DiscoveryModule
 					} else {
 						// Need to make sure that digestComponent if updated correctly: whether digestComponent is always generated dynamically? 
 						// or its change is triggered by events such as add or remove?
-						List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+						//List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
 						// And need to make sure equals method works
-						if (!octantIndices.Equals (prevIndices)) {
+						//if (!octantIndices.Equals (prevIndices)) {
 							// Game entity moved from one octant to another, and both are cared about by this instance
-							oct.addName (entityName);
-							Octant prevOct = instance_.getOctantByIndex (prevIndices);
+						//	oct.addName (entityName);
+						//	Octant prevOct = instance_.getOctantByIndex (prevIndices);
 							// NameDataset class should need MutexLock for its names
-							prevOct.removeName (entityName);
-						}
+						//	prevOct.removeName (entityName);
+						//}
 					}
 				}
 
@@ -151,8 +157,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			++callbackCount_;
 			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
 			string entityName = getEntityNameFromURI (interest.getName ().toUri ());
-			if (instance_.getGameEntityByName (entityName).incrementTimeOut ()) {
+			GameEntity ent = instance_.getGameEntityByName (entityName);
+			if (ent.incrementTimeOut ()) {
 				Console.WriteLine (entityName + " could have dropped.");
+				ent.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 			}
 		}
 
