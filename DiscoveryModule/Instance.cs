@@ -132,8 +132,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
-			// Register prefix for position related interest of self
-			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PositionPrefix + name);
+			// Register prefix for position(and action) related interest of self
+			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + name);
 			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (positionKeyChain_, certificateName_, this);
 			positionFace_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 
@@ -380,8 +380,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns>The octant.</returns>
 		public void trackOctant(Octant oct)
 		{
-			// TODO: test this method
-
 			List<int> index = oct.getListIndex ();
 			Octant temp = oct;
 			int i = Constants.octreeLevel - index.Count + 1;
@@ -595,6 +593,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="name">Name.</param>
 		public bool removeGameEntityByName(string name)
 		{
+			// TODO: test this method
 			GameEntity gameEntity = getGameEntityByName (name);
 			if (gameEntity == null) {
 				return false;
@@ -652,7 +651,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
 					if (copyGameEntities [i] != null) {
 						// Position interest name is assumed to be only the Prefix + EntityName for now
-						Name interestName = new Name (Constants.AlephPrefix + Constants.PositionPrefix + copyGameEntities [i].getName ());
+						Name interestName = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + copyGameEntities [i].getName () + Constants.PositionPrefix);
 						Interest interest = new Interest (interestName);
 
 						interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);

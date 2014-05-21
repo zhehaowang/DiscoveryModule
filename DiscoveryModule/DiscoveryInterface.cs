@@ -44,7 +44,6 @@ namespace remap.NDNMOG.DiscoveryModule
 						if (oct != null && oct.isTracking()) {
 							for (i = 0; i < namesStr.Length - 1; i++) {
 								if (!oct.getNameDataset ().containsName (namesStr [i])) {
-									// TODO: express position interest using all the names received in the data packet that current instance does not have
 									Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
 									instance_.addGameEntityByName(namesStr[i]);
 								}

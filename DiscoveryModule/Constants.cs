@@ -4,28 +4,36 @@ namespace remap.NDNMOG.DiscoveryModule
 {
 	public class Constants
 	{
+		// string names digest related variables
 		public const UInt32 FNVPrime32 = 16777619;
 		public const UInt32 FNVOffset32 = 2166136261;
-		// digest's length in bytes
-		public const int HashLength = 4;
 
 		public const string XorDebugKey = "debug";
 
+		// digest's length in bytes
+		public const int HashLength = 4;
+
 		// BroadcastPrefix is not referenced for now.
 		public const string BroadcastPrefix = "/ndn/broadcast/apps/Matryoshka/";
-		// use this prefix when peers are all conneceted via aleph.ndn.ucla.edu;
+		// use this prefix for this app when peers are all conneceted via aleph.ndn.ucla.edu;
 		// so that the data can be directed back.
 		public const string AlephPrefix = "/ndn/edu/ucla/remap/apps/Matryoshka/";
 
-		// Branch for position update
-		public const string PositionPrefix = "position/";
+		// use this component when expressing interest towards specific player
+		public const string PlayersPrefix = "players/";
 
+		// Branch for position update
+		public const string PositionPrefix = "/position/";
+
+		// The minimum starting location of octant indices name component in a name, any numbers that can be tryParsed will be interpretted as octant indices
 		public const int octOffset = 4;
 
+		// The maximum level of octree
 		public const int octreeLevel = 7;
 		// interest can only be expressed towards the lowest 2 levels of the octant.
 		public const int validOctreeLevel = 2;
 
+		// Several constants for padding in digest component for discovery interest. (Could use string.pad method instead)
 		public const byte isWhole = 0x31;
 		public const byte isPart = 0x30;
 		public const byte padding = 0x00;
@@ -52,7 +60,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int rootIndex = -1;
 
 		// After receiving 10 timeouts in a row, the peer will be considered as dropped and therefore removed from GameEntities list and octant's name list (if exists)
-		public const int DropTimeoutCount = 10;
+		public const int DropTimeoutCount = 20;
 
 		// Whether setPoCallback in gameEntity class is enabed in that class's setPosition function
 		public const bool InvokeSetPosCallback = true;
@@ -62,5 +70,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// Drop code for dropped entities
 		public const float DefaultLocationDropEntity = -2;
+
+		// Entity name component's offset from the end of position interest name
+		public const int EntityNameOffsetFromEnd = 2;
 	}
 }

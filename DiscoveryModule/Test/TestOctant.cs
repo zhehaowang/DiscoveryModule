@@ -12,7 +12,7 @@ using net.named_data.jndn.tests;
 
 namespace remap.NDNMOG.DiscoveryModule.Test
 {
-	public class DiscoveryTest
+	public class TestOctant
 	{
 		public static void main ()
 		{
@@ -62,8 +62,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// test for construct bdcast interest for certain octants
 
 			// gemerate an instance with the name of "mytest", at startingLoc
-			Vector3 location = new Vector3 (0, 0, 0);
-			Instance instance = new Instance (startingLoc, "brandenburg", location, null);
+			Vector3 location = new Vector3 (6750, 3550, 4800);
+			Instance instance = new Instance (startingLoc, "does", location, null);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -119,6 +119,9 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
+			// if following part is enabled, the instance assumes it has received a name it does not know (without actually receiving it across the network), 
+			// and start expressing position interest towards it.
+			/*
 			DiscoveryInterestInterface ii = new DiscoveryInterestInterface (keyChain, certificateName, instance1);
 
 			List<Octant> octants = ii.parseDigest (interest1);
@@ -131,6 +134,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 				// it does not get shown in debug or used for constructing position interest in later processes.
 				di.parseContent (new Interest(), data);
 			}
+			*/
 
 			// Let's initiate discovery, this method starts a new thread which deals with interest expression and event loop
 			// Another problem: there is not always an event loop going on, need modification for discovery main loop strategy
