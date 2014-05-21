@@ -205,7 +205,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			// setTimestampMilliseconds is needed for BinaryXml compatibility.
 			data.getMetaInfo ().setTimestampMilliseconds (Common.getNowMilliseconds ());
 			data.getMetaInfo ().setFreshnessSeconds (Constants.DigestDataFreshnessSeconds);
-			Console.WriteLine ("Data content it : " + content);
+
 			try {
 				keyChain_.sign (data, certificateName_);
 			} catch (SecurityException exception) {

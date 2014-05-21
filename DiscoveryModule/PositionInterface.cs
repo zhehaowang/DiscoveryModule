@@ -112,10 +112,6 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			if (gameEntity != null) {
 				Vector3 prevLocation = gameEntity.getLocation ();
-				// only x_ should be enough, need to work with the actual boundary of the game though
-				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.y_ == Constants.DefaultLocationDropEntity) {
-					prevLocation = new Vector3 (0, 0, 0);
-				}
 
 				Console.WriteLine (prevLocation);
 
@@ -129,20 +125,48 @@ namespace remap.NDNMOG.DiscoveryModule
 				if (octantIndices != null) {
 					Octant oct = instance_.getOctantByIndex (octantIndices);
 					if (oct == null || (!oct.isTracking ())) {
-						// this instance does not even care about this octant for now, so this game entity is no longer cared about as well
+						// this instance does not care about this octant for now, so this game entity is no longer cared about as well
 						// it should be removed from the list of gameEntities, and no more position interest should be issued towards it.
+						if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+							// The info we received is about an entity who is not being cared about now and was not cared about before
+							// We don't have to do anything about it, except removing it from our list of names to express interest towards
+
+						} else {
+							// This entity has left previous octant
+							List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+							Octant prevOct = instance_.getOctantByIndex (prevIndices);
+							// NameDataset class should need MutexLock for its names
+							prevOct.removeName (entityName);
+
+							prevOct.setDigestComponent ();
+
+
+						}
 					} else {
 						// Need to make sure that digestComponent if updated correctly: whether digestComponent is always generated dynamically? 
 						// or its change is triggered by events such as add or remove?
-						//List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
-						// And need to make sure equals method works
-						//if (!octantIndices.Equals (prevIndices)) {
-							// Game entity moved from one octant to another, and both are cared about by this instance
-						//	oct.addName (entityName);
-						//	Octant prevOct = instance_.getOctantByIndex (prevIndices);
-							// NameDataset class should need MutexLock for its names
-						//	prevOct.removeName (entityName);
-						//}
+
+						// only x_ should be enough, need to work with the actual boundary of the game though
+						if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+							// This entity is newly discovered, and it is cared about
+							// so it should be added to the list of names
+							oct.addName (entityName);
+							oct.setDigestComponent ();
+						} else {
+							// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
+							List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+							// And need to make sure equals method works
+							if (!octantIndices.Equals (prevIndices)) {
+								// Game entity moved from one octant to another, and both are cared about by this instance
+								oct.addName (entityName);
+								Octant prevOct = instance_.getOctantByIndex (prevIndices);
+								// NameDataset class should need MutexLock for its names
+								prevOct.removeName (entityName);
+
+								oct.setDigestComponent ();
+								prevOct.setDigestComponent ();
+							}
+						}
 					}
 				}
 

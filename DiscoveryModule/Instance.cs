@@ -570,6 +570,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return selfEntity_;
 		}
 
+		/// <summary>
+		/// Adds a new game entity to the list gameEntities_ by name if there is not an existing one.
+		/// </summary>
+		/// <returns><c>true</c>, if game entity by name does not exist before, and was added; <c>false</c> otherwise.</returns>
+		/// <param name="name">Name.</param>
 		public bool addGameEntityByName(string name)
 		{
 			if (getGameEntityByName (name) == null) {
@@ -580,6 +585,24 @@ namespace remap.NDNMOG.DiscoveryModule
 				return true;
 			} else {
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Removes an existing game entity from the list gameEntities_ by name if there is an existing one.
+		/// </summary>
+		/// <returns><c>true</c>, if game entity does exist and was removed, <c>false</c> otherwise.</returns>
+		/// <param name="name">Name.</param>
+		public bool removeGameEntityByName(string name)
+		{
+			GameEntity gameEntity = getGameEntityByName (name);
+			if (gameEntity == null) {
+				return false;
+			} else {
+				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				gameEntities_.RemoveAt (gameEntities_.IndexOf (gameEntity));
+				gameEntitiesLock_.ReleaseMutex ();
+				return true;
 			}
 		}
 
