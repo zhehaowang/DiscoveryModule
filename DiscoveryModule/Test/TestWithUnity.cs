@@ -13,7 +13,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 		{
 			Vector3 location = new Vector3 (6750, 3550, 4800);
 
-			string name = "zhehao";
+			string name = "please";
 
 			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null); 
 
