@@ -63,7 +63,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// gemerate an instance with the name of "mytest", at startingLoc
 			Vector3 location = new Vector3 (6750, 3550, 4800);
-			Instance instance = new Instance (startingLoc, "does", location, null);
+			Instance instance = new Instance (startingLoc, "live", location, null);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -145,7 +145,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			while (true) {
 				instance.getSelfGameEntity ().setLocation (location.x_ + (new Random().Next(-5, 5)), location.y_ + (new Random().Next(-5, 5)), location.z_ + (new Random().Next(-5, 5)));
-				System.Threading.Thread.Sleep (1000);
+				System.Threading.Thread.Sleep (100);
 			}
 			//InterestInterface.parseDigest (interest1);
 		}

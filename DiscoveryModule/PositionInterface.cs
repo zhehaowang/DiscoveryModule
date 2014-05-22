@@ -38,21 +38,17 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
-			// Publish position data according to the current 'block' of milliseconds we are at.
-
-			// if received /position, then there is no problem
-
-			// if received /position/<number>, then it is indicated that new data for that number should be published,
-			// but that number is dependent upon the other side's increment, which makes it irrelevant with local timestamp of milliseconds(block)
-			// It seems that 
-
 			string returnContent = location.ToString();
 
 			// The prefix input does not seem to contain the last name component
 			//Console.WriteLine (prefix.toUri());
 
-			// changed to using interest.getname for the name of return data
-			Data data = new Data (interest.getName());
+			// Publish position data with a specific version
+			long version = (long)Common.getNowMilliseconds ();
+			Console.WriteLine ("Version is : " + version);
+
+			// changed to using interest.getname + version based on the milliseconds of now, for the name of return data
+			Data data = new Data (interest.getName().appendVersion(version));
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
 			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
@@ -119,7 +115,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			++callbackCount_;
 			Console.WriteLine ("Data received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
 
-			string entityName = getEntityNameFromURI (data.getName().toUri());
+			string entityName = getEntityNameFromURI (interest.getName().toUri());
 
 			// since it's pointer reference, do I need to extend the mutex lock here?
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
@@ -127,11 +123,23 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Vector3 location = new Vector3 (locationStr);
 
-			if (gameEntity != null) {
+			long version = data.getName ().get (data.getName().size() - Constants.DataVersionOffsetFromEnd).toVersion();
+
+			if (gameEntity != null && version > gameEntity.getPreviousRespondTime()) {
 				Vector3 prevLocation = gameEntity.getLocation ();
 
 				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 				gameEntity.resetTimeOut ();
+
+
+				Console.WriteLine ("Version is : " + version);
+				// adding or clearing up the exclude field
+				if (gameEntity.getExclude ().size () >= Constants.PositionUpdatesPerSecond || version - gameEntity.getPreviousRespondTime() > Constants.ExclusionClearPeriod) {
+					gameEntity.resetExclude ();
+				} else {
+					gameEntity.addExclude (version);
+				}
+				gameEntity.setPreviousRespondTime(version);
 
 				// TODO: Test following logic
 				// Cross thread reference without mutex is still a problem here.

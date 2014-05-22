@@ -44,7 +44,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int BroadcastIntervalMilliSeconds = 3000;
 
 		// Time out value for position update interest
-		public const int PositionTimeoutMilliSeconds = 250;
+		public const int PositionTimeoutMilliSeconds = 500;
 		// Interval for position update if it brought back position data
 		public const int PositionIntervalMilliSeconds = 250;
 
@@ -76,5 +76,11 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// Entity name component's offset from the end of position interest name
 		public const int EntityNameOffsetFromEnd = 2;
+
+		// Data version component's offset from the end of data name
+		public const int DataVersionOffsetFromEnd = 1;
+
+		// Exclusion filter clear period
+		public const int ExclusionClearPeriod = 2000 * PosititonDataFreshnessSeconds;
 	}
 }

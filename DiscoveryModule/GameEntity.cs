@@ -1,4 +1,5 @@
 ﻿using System;
+using net.named_data.jndn;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -21,6 +22,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		private EntityType entityType_;
 		private int timeoutCount_;
 
+		private Exclude exclude_;
+		private long previousRespondTime_;
+
 		private SetPosCallback setPosCallback_;
 
 		public GameEntity (string name, EntityType entityType)
@@ -30,6 +34,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (0, 0, 0);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
+			exclude_ = new Exclude ();
+			previousRespondTime_ = 0;
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location)
@@ -39,6 +45,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (location);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
+			exclude_ = new Exclude ();
+			previousRespondTime_ = 0;
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
@@ -48,6 +56,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (location);
 			timeoutCount_ = 0;
 			setPosCallback_ = setPosCallback;
+			exclude_ = new Exclude ();
+			previousRespondTime_ = 0;
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
@@ -57,6 +67,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (x, y, z);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
+			exclude_ = new Exclude ();
+			previousRespondTime_ = 0;
 		}
 
 		public string getName()
@@ -67,6 +79,16 @@ namespace remap.NDNMOG.DiscoveryModule
 		public Vector3 getLocation()
 		{
 			return location_;
+		}
+
+		public void setPreviousRespondTime(long respondTime)
+		{
+			previousRespondTime_ = respondTime;
+		}
+
+		public long getPreviousRespondTime()
+		{
+			return previousRespondTime_;
 		}
 
 		public void setLocation(Vector3 location, bool invokeCallback)
@@ -106,6 +128,21 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				return false;
 			}
+		}
+
+		public void resetExclude()
+		{
+			exclude_ = new Exclude ();
+		}
+
+		public void addExclude(long versionNum)
+		{
+			exclude_.appendComponent (new Name().appendVersion(versionNum).get(0));
+		}
+
+		public Exclude getExclude()
+		{
+			return exclude_;
 		}
 
 		public void resetTimeOut()

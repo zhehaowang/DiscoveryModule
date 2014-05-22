@@ -656,6 +656,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 						interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
 						interest.setMustBeFresh (true);
+						interest.setExclude (copyGameEntities[i].getExclude());
 
 						positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
 					} else {
