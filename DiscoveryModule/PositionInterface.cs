@@ -38,6 +38,14 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
+			// Publish position data according to the current 'block' of milliseconds we are at.
+
+			// if received /position, then there is no problem
+
+			// if received /position/<number>, then it is indicated that new data for that number should be published,
+			// but that number is dependent upon the other side's increment, which makes it irrelevant with local timestamp of milliseconds(block)
+			// It seems that 
+
 			string returnContent = location.ToString();
 
 			// The prefix input does not seem to contain the last name component

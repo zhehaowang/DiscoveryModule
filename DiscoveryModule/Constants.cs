@@ -44,14 +44,17 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int BroadcastIntervalMilliSeconds = 3000;
 
 		// Time out value for position update interest
-		public const int PositionTimeoutMilliSeconds = 300;
+		public const int PositionTimeoutMilliSeconds = 250;
 		// Interval for position update if it brought back position data
-		public const int PositionIntervalMilliSeconds = 300;
+		public const int PositionIntervalMilliSeconds = 250;
 
 		// Freshness period for broadcast digest data
 		public const int DigestDataFreshnessSeconds = 20;
-		// Alternative...Weird enough, freshnessmillisecond doesn't work with setFreshnessPeriod...Should test more some time
+		// Freshness period for each position update. According to the documentation on ndnd-tlv, any freshness period less than a second is not supported
 		public const int PosititonDataFreshnessSeconds = 1;
+
+		// Number of position update (published if queried) per second, please make sure (mod (1000 * PositionDataFreshnessSeconds, PositionIntervalMilliSeconds) == 0)
+		public const int PositionUpdatesPerSecond = PosititonDataFreshnessSeconds * 1000 / PositionIntervalMilliSeconds;
 
 		// The default timeout for mutex locks used in instance class
 		public const int MutexLockTimeoutMilliSeconds = 1000;
