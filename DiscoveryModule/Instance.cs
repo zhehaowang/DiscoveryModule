@@ -431,8 +431,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				Console.WriteLine ("Given octant's indices doesn't fit in valid octree level");
 				return;
 			}
-			for (; i<Constants.validOctreeLevel; i++)
-			{
+			for (; i < Constants.validOctreeLevel; i++) {
 				temp = temp.parent ();
 			}
 

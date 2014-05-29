@@ -2,12 +2,21 @@
 
 namespace remap.NDNMOG.DiscoveryModule
 {
+	/// <summary>
+	/// Vector3 is an implementation similar with UnityEngine's vector3. Conversion from one to another is done in Unity.
+	/// </summary>
 	public class Vector3
 	{
 		public float x_;
 		public float y_;
 		public float z_;
 
+		/// <summary>
+		/// Standard constructor from three floats
+		/// </summary>
+		/// <param name="x">The x coordinate.</param>
+		/// <param name="y">The y coordinate.</param>
+		/// <param name="z">The z coordinate.</param>
 		public Vector3(float x, float y, float z)
 		{
 			x_ = x;

@@ -6,19 +6,21 @@ using System.Collections;
 namespace remap.NDNMOG.DiscoveryModule
 {
 	/// <summary>
-	/// Octant class describes an octant and its attributes.
-	/// Each octant is considered to be a node in octree, whose root_ is hosted by Instance class.
+	/// Octant class describes an octant node in the octree and its attributes.
+	/// Each instance of this class is considered to be a node in octree, whose root_ is hosted by Instance class.
 	/// </summary>
 	public class Octant
 	{
 		private int index_;
 		private int length_;
 
+		// Each octant contains a digest component, however, only the leaf octants actually store names in the name dataset.
 		private NameDataset nameDataset_;
 		private DigestComponent digestComponent_;
 
 		private bool isLeaf_;
 
+		// Octant is implemented based on a leftChild-rightSibling tree
 		private Octant leftChild_;
 		private Octant rightSibling_;
 		private Octant parent_;
@@ -133,6 +135,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			return;
 		}
 
+		/// <summary>
+		/// hasTrackingChildren checks if a parent octant contains any children that's being tracked, by traversing the subtree using BFS
+		/// </summary>
+		/// <returns><c>true</c>, if this node has children that are being tracked, <c>false</c> otherwise, or if this node if leaf.</returns>
 		public bool hasTrackingChildren()
 		{
 			if (isLeaf_) {

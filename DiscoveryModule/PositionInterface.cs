@@ -15,8 +15,21 @@ using System.Collections.Generic;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
+	/// <summary>
+	/// PositionInterestInterface handles the registration failure for position interest, or responds to incoming position interest. 
+	/// This class inherits onInterest and onRegisterFailed.
+	/// Reference to this class is passed as parameter for prefix registration
+	/// </summary>
 	public class PositionInterestInterface : OnInterest, OnRegisterFailed
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="remap.NDNMOG.DiscoveryModule.PositionInterestInterface"/> class.
+		/// KeyChain, CertificateName are used for creating signedData when interest is received.
+		/// A reference to an instance of Instance class is passed, so that this class can access the NameDataset of Octants belonging to a certain instance
+		/// </summary>
+		/// <param name="keyChain">Key chain.</param>
+		/// <param name="certificateName">Certificate name.</param>
+		/// <param name="instance">The local game instance.</param>
 		public PositionInterestInterface (KeyChain keyChain, Name certificateName, Instance instance)
 		{
 			keyChain_ = keyChain;      
@@ -25,7 +38,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Send position info of self back to the interest's issuer, with 200ms of data freshness
+		/// Send position of self back to the interest's issuer, with freshness defined in constants class.
 		/// </summary>
 		/// <param name="prefix">Prefix.</param>
 		/// <param name="interest">Interest.</param>
@@ -33,15 +46,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="registeredPrefixId">Registered prefix identifier.</param>
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
+			// TODO: Debug version usage
 			Console.WriteLine ("Interest received: " + interest.toUri());
 			++responseCount_;
 
 			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
 			string returnContent = location.ToString();
-
-			// The prefix input does not seem to contain the last name component
-			//Console.WriteLine (prefix.toUri());
 
 			// Publish position data with a specific version
 			long version = (long)Common.getNowMilliseconds ();
@@ -67,6 +78,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		/// <summary>
+		/// Called when register position prefix fails
+		/// </summary>
+		/// <param name="prefix">The failed prefix.</param>
 		public void onRegisterFailed (Name prefix)
 		{
 			++responseCount_;
@@ -79,15 +94,25 @@ namespace remap.NDNMOG.DiscoveryModule
 		Instance instance_;
 	}
 
+	/// <summary>
+	/// PositionDataInterface handles the response to this instance's position interest. It processes the incoming position data, or interest timeout.
+	/// This class inherits onData and onTimeout.
+	/// Reference to this class is passed as parameter for interest expression.
+	/// </summary>
 	public class PositionDataInterface : OnData, OnTimeout
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="remap.NDNMOG.DiscoveryModule.PositionDataInterface"/> class.
+		/// A reference to instance is passed here so that position info belonging to that instance can be accessed.
+		/// </summary>
+		/// <param name="instance">Instance.</param>
 		public PositionDataInterface(Instance instance)
 		{
 			instance_ = instance;
 		}
 
 		/// <summary>
-		/// Get the entityName from getName().toUri(), here we are assuming that the entity name is the last two name component
+		/// Get the entityName from getName().toUri(), entity name locator (position from the end of an interest name) is defined in constants
 		/// </summary>
 		/// <returns>The entity name from URI.</returns>
 		/// <param name="nameURI">Name URI.</param>
@@ -99,7 +124,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// OnData assumes the name of the entity is the last component of data name, which may not hold true for later designs
+		/// On data is called when data is received for an expressed position interest.
+		/// Position of corresponding entity in Instance need to be updated accordingly.
+		/// If the containing octant of the entity is not cared about, and the entity does not belong to a previously cared about octant: Stop expressing position interest towards that entity
+		/// If the containing octant of the entity is not cared about, but the entity used to belong to a cared about octant: The entity has left, therefore no more position interest should be expressed towards it, and we remove it from its previous octant
+		/// If the containing octant of the entity is cared about, and the entity does not belong to a previously cared about octant: The entity has entered, and should be added to the NameDataset of the corresponding octant
+		/// If the containing octant of the entity is cared about, and the entity used to belong to a cared about octant: The entity has left one octant for another, and should be added to the NameDataset of the new Octant, and removed from that of the old octant.
 		/// </summary>
 		/// <param name="interest">Interest.</param>
 		/// <param name="data">Data.</param>
@@ -130,7 +160,6 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 				gameEntity.resetTimeOut ();
-
 
 				Console.WriteLine ("Version is : " + version);
 				// adding or clearing up the exclude field
@@ -196,6 +225,12 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		/// <summary>
+		/// Position interest times out. Receiving a number of timeouts in a row signifies an entity has dropped, 
+		/// and should be removed from its octant, and position interest should no longer be expressed towards it.
+		/// The number is defined in constants.
+		/// </summary>
+		/// <param name="interest">Interest.</param>
 		public void onTimeout (Interest interest)
 		{
 			++callbackCount_;
