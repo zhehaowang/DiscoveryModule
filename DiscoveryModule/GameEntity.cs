@@ -91,6 +91,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return previousRespondTime_;
 		}
 
+		/// <summary>
+		/// Set the location of this game entity, and call Callback passed from Unity depending on the input boolean
+		/// </summary>
+		/// <param name="location">Location.</param>
+		/// <param name="invokeCallback">If set to <c>true</c> invoke callback.</param>
 		public void setLocation(Vector3 location, bool invokeCallback)
 		{
 			location_ = location;
@@ -135,6 +140,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			exclude_ = new Exclude ();
 		}
 
+		/// <summary>
+		/// Exclude not fully working yet.
+		/// </summary>
+		/// <param name="versionNum">Version number.</param>
 		public void addExclude(long versionNum)
 		{
 			exclude_.appendComponent (new Name().appendVersion(versionNum).get(0));

@@ -172,7 +172,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Debugs the octree structure of this instance.
+		/// Debugs the octree structure of this instance using BFS traversal
 		/// </summary>
 		public void debugTree()
 		{
@@ -238,6 +238,12 @@ namespace remap.NDNMOG.DiscoveryModule
 			return temp;
 		}
 
+		/// <summary>
+		/// Constructs the broadcast discovery interest for a certain octant indicated by given octant. 
+		/// </summary>
+		/// <returns>The bdcast interest.</returns>
+		/// <param name="prefix">The prefix the octant indices are appended to.</param>
+		/// <param name="oct">The octant to construct broadcast interest for.</param>
 		public Interest constructBdcastInterest(string prefix, Octant oct)
 		{
 			//ASCII '1' stands for isWholeSet; 0 is appended so that base64 for UInt32 does not need padding
@@ -274,7 +280,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Constructs the bdcast interest for a certain octant. 
+		/// Constructs the broadcast discovery interest for a certain octant indicated by given indices. 
 		/// The method first checks the local digest of the octant, append it after "isWhole" byte,
 		/// And use Base64 to encode the bytes and get a string to append as the last name component.
 		/// </summary>
@@ -444,9 +450,8 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 
-			// stop expressing interest for itself
+			// stop expressing broadcast interest for that octant
 			// TODO: change to detection of whether aggregation is needed to minimize the amount of interest sent
-			// TODO: Test if oct equals(contains) method works
 			int idx = interestExpressionOctants_.IndexOf (oct);
 			if (idx != -1) {
 				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
@@ -471,6 +476,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this);
 			while (true) {
+				// TODO: Implement which octant to express interest towards: Could be done in another thread which constants receives the location from Unity instance
+				// 		using MutexLock when modifying interestExpressionOctants_. Could be more closely coupled with Unity instance.
+				// TODO: Check if there's moments main event loop will not be running or fail to get out?
+
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
 				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
@@ -519,6 +528,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		/// <summary>
+		/// Stop discovery kills the broadcast interest expression thread and position interest expression thread.
+		/// It is called in onApplicationExit in Unity, both threads will keep running after application exits if it's not called.
+		/// </summary>
 		public void stopDiscovery()
 		{
 			if (tInterestExpression_.IsAlive) {
@@ -534,13 +547,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Discovery sends broadcast discovery interest periodically.
+		/// Discovery starts sending broadcast discovery interest and position udpate interest periodically.
 		/// </summary>
 		public void discovery ()
 		{
 			try {
-				// TODO: Implement which octant to express interest towards; and how to express interest towards it:
-
 				// Thread for expressing interest.
 				tInterestExpression_ = new Thread(this.discoveryExpressInterest);
 				tInterestExpression_.Start();
@@ -551,12 +562,6 @@ namespace remap.NDNMOG.DiscoveryModule
 				// The main event loop.  
 				// Wait to receive one interest for the prefix.
 
-				//while (interestHandle.responseCount_ < 1) {
-
-				//while (true){
-					//face_.processEvents ();
-				//System.Threading.Thread.Sleep (5000);
-				//}
 			} catch (Exception e) {
 				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}

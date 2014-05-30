@@ -236,11 +236,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			++callbackCount_;
 			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
 			string entityName = getEntityNameFromURI (interest.getName ().toUri ());
-			GameEntity ent = instance_.getGameEntityByName (entityName);
-			if (ent.incrementTimeOut ()) {
+			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
+			if (gameEntity.incrementTimeOut ()) {
 				Console.WriteLine (entityName + " could have dropped.");
 				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
-				Vector3 prevLocation = ent.getLocation ();
+				Vector3 prevLocation = gameEntity.getLocation ();
 				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
 					// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
 					instance_.removeGameEntityByName (entityName);
@@ -253,7 +253,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					prevOct.setDigestComponent ();
 					instance_.removeGameEntityByName (entityName);
 				}
-				ent.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
+				gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 			}
 		}
 
