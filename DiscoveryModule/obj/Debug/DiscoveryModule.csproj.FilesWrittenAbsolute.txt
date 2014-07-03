@@ -1,6 +1,0 @@
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/obj/Debug/.NETFramework,Version=v4.0.AssemblyAttribute.cs
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/bin/Debug/TranslatedJndn.dll
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/bin/Debug/DiscoveryModule.dll.mdb
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/bin/Debug/DiscoveryModule.dll
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/obj/Debug/DiscoveryModule.dll
-/Users/zhehaowang/Projects/MOG/TranslatedJndnAndTest_2/DiscoveryModule/DiscoveryModule/obj/Debug/DiscoveryModule.dll.mdb
