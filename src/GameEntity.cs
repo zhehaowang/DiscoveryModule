@@ -22,8 +22,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		private EntityType entityType_;
 		private int timeoutCount_;
 
-		private Exclude exclude_;
 		private long previousRespondTime_;
+
+		public Vector3[] locationArray_;
+		private long sequenceNumber_;
 
 		private SetPosCallback setPosCallback_;
 
@@ -34,8 +36,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (0, 0, 0);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
-			exclude_ = new Exclude ();
 			previousRespondTime_ = 0;
+
+			sequenceNumber_ = Constants.DefaultSequenceNumber;
+			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
+			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
+				locationArray_ [i] = new Vector3 (0, 0, 0);
+			}
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location)
@@ -45,8 +52,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (location);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
-			exclude_ = new Exclude ();
 			previousRespondTime_ = 0;
+
+			sequenceNumber_ = Constants.DefaultSequenceNumber;
+			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
+			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
+				locationArray_ [i] = new Vector3 (0, 0, 0);
+			}
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
@@ -56,8 +68,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (location);
 			timeoutCount_ = 0;
 			setPosCallback_ = setPosCallback;
-			exclude_ = new Exclude ();
 			previousRespondTime_ = 0;
+
+			sequenceNumber_ = Constants.DefaultSequenceNumber;
+			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
+			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
+				locationArray_ [i] = new Vector3 (0, 0, 0);
+			}
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
@@ -67,8 +84,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = new Vector3 (x, y, z);
 			timeoutCount_ = 0;
 			setPosCallback_ = null;
-			exclude_ = new Exclude ();
 			previousRespondTime_ = 0;
+
+			sequenceNumber_ = Constants.DefaultSequenceNumber;
+			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
+			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
+				locationArray_ [i] = new Vector3 (0, 0, 0);
+			}
 		}
 
 		public string getName()
@@ -121,6 +143,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			return entityType_;
 		}
 
+		public long getSequenceNumber()
+		{
+			return sequenceNumber_;
+		}
+
+		public void setSequenceNumber(long sequenceNumber)
+		{
+			sequenceNumber_ = sequenceNumber;
+			return;
+		}
+
 		/// <summary>
 		/// Increments the timeout count.
 		/// </summary>
@@ -135,24 +168,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
-		public void resetExclude()
-		{
-			exclude_ = new Exclude ();
-		}
-
-		/// <summary>
-		/// Exclude not fully working yet.
-		/// </summary>
-		/// <param name="versionNum">Version number.</param>
-		public void addExclude(long versionNum)
-		{
-			exclude_.appendComponent (new Name().appendVersion(versionNum).get(0));
-		}
-
-		public Exclude getExclude()
-		{
-			return exclude_;
-		}
 
 		public void resetTimeOut()
 		{

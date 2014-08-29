@@ -88,12 +88,12 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// try constructing a broadcast interest from the info of startingLoc, which should contain 3 names
 			Console.WriteLine ("Constructing interest from starting location: ");
-			Interest interest = instance.constructBdcastInterest (Constants.AlephPrefix, startingLoc);
+			Interest interest = instance.constructBdcastInterest (Constants.BroadcastPrefix, startingLoc);
 			Console.WriteLine (interest.toUri ());
 
 			// try constructing a broadcast interest from startingLoc and childLoc list, which does not contain any names
 			Console.WriteLine ("Constructing interest from starting location and another location: ");
-			Interest interest1 = instance.constructBdcastInterest (Constants.AlephPrefix, parentLoc, childLoc);
+			Interest interest1 = instance.constructBdcastInterest (Constants.BroadcastPrefix, parentLoc, childLoc);
 			Console.WriteLine (interest1.toUri ());
 
 			// assumes that another instance receives the above constructed interest, and tries to decode and decide what to return.

@@ -14,13 +14,10 @@ using net.named_data.jndn.tests;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
-	/// <summary>
-	/// Data interface: for processing the incoming data
-	/// </summary>
-
+	// TODO: noticed the problem of "Object reference not set to an instance of an object" after one node drops
 
 	/// <summary>
-	/// Network interface: for periodic broadcast of sync style message.
+	/// Instance: for periodic broadcast of sync style message.
 	/// Accesses all the octants and their digest fields to form the broadcast interest names
 	/// Calls the corresponding functions in InterestInterface and DataInterface
 	/// </summary>
@@ -44,6 +41,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Thread tInterestExpression_;
 		// The thread that handles posititon interest expression
 		private Thread tPositionInterestExpression_;
+		// The thread that publishes the location of the local game entity.
+		private Thread publisherThread_;
 
 		// Keychain for face localhost and default certificate name, instantiated along with instance class
 		private KeyChain keyChain_;
@@ -407,7 +406,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (!trackingPrefixes_.Contains (filterPrefixStr)) {
 				DiscoveryInterestInterface interestHandle = new DiscoveryInterestInterface (keyChain_, certificateName_, this);
 
-				Name prefix = new Name(Constants.AlephPrefix + filterPrefixStr);
+				Name prefix = new Name(Constants.BroadcastPrefix + filterPrefixStr);
 				long id = face_.registerPrefix (prefix, interestHandle, interestHandle);
 
 				trackingPrefixes_.Add(filterPrefixStr, id);
@@ -471,7 +470,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			int i = 0;
 			Interest interest = new Interest();
-			int sleepSeconds = 0; 
 
 			int count = 0;
 
@@ -496,7 +494,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					// Which will cause a NullReference exception.
 
 					if (copyOctantsList [i] != null) {
-						interest = constructBdcastInterest (Constants.AlephPrefix, copyOctantsList [i]);
+						interest = constructBdcastInterest (Constants.BroadcastPrefix, copyOctantsList [i]);
 
 						interest.setMustBeFresh (true);
 						interest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
@@ -533,6 +531,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				Console.WriteLine ("tPositionInterestExpression_ is not alive");
 			}
+			if (publisherThread_.IsAlive) {
+				publisherThread_.Abort ();
+			}
 			face_.stopProcessing ();
 		}
 
@@ -549,9 +550,23 @@ namespace remap.NDNMOG.DiscoveryModule
 				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
 				tPositionInterestExpression_.Start();
 
+				publisherThread_ = new Thread(this.publishLocation);
+				publisherThread_.Start();
+
 				face_.startProcessing();
 			} catch (Exception e) {
 				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
+			}
+		}
+
+		// should use this method to publish to memory content cache
+		public void publishLocation()
+		{
+			while (true) {
+				// should lock it here
+				selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);
+				selfEntity_.locationArray_ [selfEntity_.getSequenceNumber ()] = selfEntity_.getLocation ();
+				Thread.Sleep(Constants.PositionIntervalMilliSeconds);
 			}
 		}
 
@@ -628,7 +643,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			int count = 0;
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
-			int sleepSeconds = 0;
 
 			while (true) {
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
@@ -643,13 +657,23 @@ namespace remap.NDNMOG.DiscoveryModule
 					if (copyGameEntities [i] != null) {
 						// Position interest name is assumed to be only the Prefix + EntityName for now
 						Name interestName = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + copyGameEntities [i].getName () + Constants.PositionPrefix);
-						Interest interest = new Interest (interestName);
+						if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
+							interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
+							Interest interest = new Interest (interestName);
 
-						interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
-						interest.setMustBeFresh (true);
-						interest.setExclude (copyGameEntities[i].getExclude());
+							interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
+							interest.setMustBeFresh (true);
 
-						face_.expressInterest (interest, positionDataInterface, positionDataInterface);
+							face_.expressInterest (interest, positionDataInterface, positionDataInterface);
+						} else {
+							Interest interest = new Interest (interestName);
+
+							interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
+							interest.setMustBeFresh (true);
+							// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
+							interest.setChildSelector (1);
+
+							face_.expressInterest (interest, positionDataInterface, positionDataInterface);						}
 					} else {
 
 					}

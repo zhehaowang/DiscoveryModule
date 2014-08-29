@@ -37,6 +37,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			instance_ = instance;
 		}
 
+		// To publish content to memory content cache would be ideal.
+
 		/// <summary>
 		/// Send position of self back to the interest's issuer, with freshness defined in constants class.
 		/// </summary>
@@ -46,14 +48,30 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="registeredPrefixId">Registered prefix identifier.</param>
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			// TODO: Debug version usage
 			Console.WriteLine ("Interest received: " + interest.toUri());
 
-			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
+			//Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
-			string returnContent = location.ToString();
+			string returnContent = "";
 
 			Data data = new Data (interest.getName());
+
+			Name newName = new Name (Constants.AlephPrefix);
+			Console.WriteLine (interest.getName ().size () + " " + (newName.size () + 3));
+
+			// should print the latency between generating and actually receiving interest and answering
+			if (interest.getName ().size () == (newName.size () + 3)) {
+				long sequenceNumber = instance_.getSelfGameEntity ().getSequenceNumber ();
+				Console.WriteLine ("Here Current seq number is " + sequenceNumber);
+
+				data.getName ().append (Name.Component.fromNumber(sequenceNumber));
+				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
+			} else {
+				long sequenceNumber = PositionDataInterface.getSequenceFromName(interest.getName());
+				Console.WriteLine ("Current seq number is " + sequenceNumber);
+
+				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
+			}
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
 			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
@@ -107,12 +125,39 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// Get the entityName from getName().toUri(), entity name locator (position from the end of an interest name) is defined in constants
 		/// </summary>
 		/// <returns>The entity name from URI.</returns>
-		/// <param name="nameURI">Name URI.</param>
-		public string getEntityNameFromURI(string nameURI)
+		/// <param name="name">Name.</param>
+		public static string getEntityNameFromName(Name name)
 		{
-			string[] splitString = nameURI.Split ('/');
-			string entityName = splitString[splitString.Length - Constants.EntityNameOffsetFromEnd];
+			Name lengthName = new Name (Constants.AlephPrefix);
+			// the thing that comes directly after hubPrefix should be players + entityName
+			string entityName = name.get (lengthName.size() + 1).toEscapedString ();
 			return entityName;
+		}
+
+		/// <summary>
+		/// Gets the sequence number from name.
+		/// </summary>
+		/// <returns>The sequence from name.</returns>
+		public static long getSequenceFromName(Name name)
+		{
+			Name lengthName = new Name (Constants.AlephPrefix);
+
+			// hubPrefix + players + entityName + position + seq
+			if (lengthName.size () + 4 == name.size ()) {
+				long sequenceNumber = name.get (-1).toNumber ();
+				return sequenceNumber;
+			} else {
+				return -1;
+			}
+		}
+
+		public Boolean judgeSequence(long seq1, long seq2)
+		{
+			if (seq1 < seq2 || seq1 == Constants.MaxSequenceNumber - 1 || seq1 == Constants.DefaultSequenceNumber) {
+				return true;
+			} else {
+				return false;
+			}
 		}
 
 		/// <summary>
@@ -135,17 +180,22 @@ namespace remap.NDNMOG.DiscoveryModule
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			++callbackCount_;
-			Console.WriteLine ("Data received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
+			Console.WriteLine 
+			("Data " + data.getName().toUri() + " received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
 
-			string entityName = getEntityNameFromURI (interest.getName().toUri());
+			string entityName = getEntityNameFromName (data.getName ());
+			long sequenceNumber = getSequenceFromName (data.getName ());
 
 			// since it's pointer reference, do I need to extend the mutex lock here?
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
+
 			string[] locationStr = contentStr.Split (',');
 
 			Vector3 location = new Vector3 (locationStr);
 
-			if (gameEntity != null) {
+			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
+				gameEntity.setSequenceNumber (sequenceNumber);
+
 				Vector3 prevLocation = gameEntity.getLocation ();
 
 				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
@@ -202,7 +252,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			} else {
 				// Don't expect this to happen
-				Console.WriteLine("Received name (" + entityName + ") does not have a gameEntity stored locally.");
+				Console.WriteLine("Received name (" + entityName + ") does not have a gameEntity stored locally, or sequence does not match.");
 			}
 		}
 
@@ -216,7 +266,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			++callbackCount_;
 			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
-			string entityName = getEntityNameFromURI (interest.getName ().toUri ());
+			string entityName = getEntityNameFromName (interest.getName ());
+
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 			if (gameEntity.incrementTimeOut ()) {
 				Console.WriteLine (entityName + " could have dropped.");

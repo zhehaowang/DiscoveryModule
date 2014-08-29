@@ -15,6 +15,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// BroadcastPrefix is not referenced for now.
 		public const string BroadcastPrefix = "/ndn/broadcast/apps/Matryoshka/";
+
 		// use this prefix for this app when peers are all conneceted via aleph.ndn.ucla.edu;
 		// so that the data can be directed back.
 		public const string AlephPrefix = "/ndn/edu/ucla/remap/apps/Matryoshka/";
@@ -75,12 +76,15 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const float DefaultLocationDropEntity = -2;
 
 		// Entity name component's offset from the end of position interest name
-		public const int EntityNameOffsetFromEnd = 2;
+		public const int EntityNameOffsetFromEnd = 3;
 
 		// Data version component's offset from the end of data name
 		public const int DataVersionOffsetFromEnd = 1;
 
 		// Exclusion filter clear period
 		public const int ExclusionClearPeriod = 2000 * PosititonDataFreshnessSeconds;
+
+		public const int MaxSequenceNumber = 256;
+		public const int DefaultSequenceNumber = -1;
 	}
 }
