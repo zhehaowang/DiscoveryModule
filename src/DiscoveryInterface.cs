@@ -217,7 +217,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			Console.WriteLine ("Interest received: " + interest.toUri());
 
-			++responseCount_;
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
 				Data data = constructData (interest, octants);
@@ -233,13 +232,11 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onRegisterFailed (Name prefix)
 		{
-			++responseCount_;
 			Console.WriteLine ("Register failed for prefix " + prefix.toUri ());
 		}
 
 		KeyChain keyChain_;
 		Name certificateName_;
-		public int responseCount_ = 0;
 		Instance instance_;
 	}
 }

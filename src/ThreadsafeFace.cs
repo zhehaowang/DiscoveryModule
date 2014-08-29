@@ -6,6 +6,9 @@ using net.named_data.jndn.security;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
+	/// <summary>
+	/// ThreadsafeFace does not wrap security methods for Face, keyChain and certificateName are not included in this.
+	/// </summary>
 	public class ThreadsafeFace
 	{
 		public ThreadsafeFace (Face face)

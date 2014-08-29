@@ -48,18 +48,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			// TODO: Debug version usage
 			Console.WriteLine ("Interest received: " + interest.toUri());
-			++responseCount_;
 
 			Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
 			string returnContent = location.ToString();
 
-			// Publish position data with a specific version
-			long version = (long)Common.getNowMilliseconds ();
-			Console.WriteLine ("Version is : " + version);
-
-			// changed to using interest.getname + version based on the milliseconds of now, for the name of return data
-			Data data = new Data (interest.getName().appendVersion(version));
+			Data data = new Data (interest.getName());
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
 			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
@@ -84,13 +78,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="prefix">The failed prefix.</param>
 		public void onRegisterFailed (Name prefix)
 		{
-			++responseCount_;
 			Console.WriteLine ("Register failed for prefix " + prefix.toUri ());
 		}
 
 		KeyChain keyChain_;
 		Name certificateName_;
-		public int responseCount_ = 0;
 		Instance instance_;
 	}
 
@@ -153,22 +145,11 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Vector3 location = new Vector3 (locationStr);
 
-			long version = data.getName ().get (data.getName().size() - Constants.DataVersionOffsetFromEnd).toVersion();
-
-			if (gameEntity != null && version > gameEntity.getPreviousRespondTime()) {
+			if (gameEntity != null) {
 				Vector3 prevLocation = gameEntity.getLocation ();
 
 				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 				gameEntity.resetTimeOut ();
-
-				Console.WriteLine ("Version is : " + version);
-				// adding or clearing up the exclude field
-				if (gameEntity.getExclude ().size () >= Constants.PositionUpdatesPerSecond || version - gameEntity.getPreviousRespondTime() > Constants.ExclusionClearPeriod) {
-					gameEntity.resetExclude ();
-				} else {
-					gameEntity.addExclude (version);
-				}
-				gameEntity.setPreviousRespondTime(version);
 
 				// TODO: Test following logic
 				// Cross thread reference without mutex is still a problem here.

@@ -473,9 +473,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			Interest interest = new Interest();
 			int sleepSeconds = 0; 
 
-			// Separate count from responseCount so that the loop is not messed up
 			int count = 0;
-			int responseCount = 0;
 
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this);
@@ -490,7 +488,6 @@ namespace remap.NDNMOG.DiscoveryModule
 				interestExpressionOctantsLock_.ReleaseMutex();
 
 				count = copyOctantsList.Count;
-				responseCount = count;
 				for (i = 0; i<count; i++)
 				{
 					// the judgment of isNull may seem unnecessary, but since this is carried out in another thread,
@@ -509,7 +506,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 						Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri ());
 					} else {
-						responseCount--;
+
 					}
 				}
 
@@ -630,7 +627,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
-			int responseCount = count;
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
 			int sleepSeconds = 0;
 
@@ -640,7 +636,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				List<GameEntity> copyGameEntities = new List<GameEntity> (gameEntities_);
 				gameEntitiesLock_.ReleaseMutex ();
 				count = copyGameEntities.Count;
-				responseCount = count;
+
 				// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
 				for (int i = 0; i < count; i++) {
 					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
@@ -655,8 +651,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 						face_.expressInterest (interest, positionDataInterface, positionDataInterface);
 					} else {
-						// We will be expecting one less data response since interest is not expressed.
-						responseCount--;
+
 					}
 				}
 
