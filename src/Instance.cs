@@ -51,11 +51,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// Face for broadcast discovery interest
 		// Always using default face_ localhost
-		private Face face_;
-
-		// Face for position and action update: is this the right pattern? Need to have another KeyChain as well...
-		private Face positionFace_;
-		private KeyChain positionKeyChain_;
+		private ThreadsafeFace face_;
 
 		// The list that stores other game entities than self
 		private List<GameEntity> gameEntities_;
@@ -74,7 +70,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
-		public Instance (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback)
+		public Instance 
+		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, Face face = null, KeyChain keyChain = null, Name certificateName = null)
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			setPosCallback_ = setPosCallback;
@@ -110,32 +107,39 @@ namespace remap.NDNMOG.DiscoveryModule
 			name_ = name;
 
 			// Instantiate the face_, keyChain_ and certificateName_
-			face_ = new Face ("localhost");
+			if (face_ == null) {
+				face_ = new ThreadsafeFace(new Face ("localhost"));
 
-			MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
-			MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();
-			keyChain_ = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
-				new SelfVerifyPolicyManager (identityStorage));
-			keyChain_.setFace (face_);
+				MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
+				MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();
+				keyChain_ = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
+					new SelfVerifyPolicyManager (identityStorage));
+				keyChain_.setFace (face_.getFace());
 
-			// Initiate the postionFace_, positionKeyChain_
-			positionFace_ = new Face ("localhost");
+				// Initialize the storage.
+				Name keyName = new Name ("/testname/DSK-123");
+				certificateName_ = keyName.getSubName (0, keyName.size () - 1).append ("KEY").append (keyName.get (-1)).append ("ID-CERT").append ("0");
+				identityStorage.addKey (keyName, KeyType.RSA, new Blob (TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, false));
 
-			positionKeyChain_ = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
-				new SelfVerifyPolicyManager (identityStorage));
-			positionKeyChain_.setFace (positionFace_);
+				privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
-			// Initialize the storage.
-			Name keyName = new Name ("/testname/DSK-123");
-			certificateName_ = keyName.getSubName (0, keyName.size () - 1).append ("KEY").append (keyName.get (-1)).append ("ID-CERT").append ("0");
-			identityStorage.addKey (keyName, KeyType.RSA, new Blob (TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, false));
+				// Allow prefix registration for nfd
+				face_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
 
-			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
+			} else {
+				// Register prefix for position(and action) related interest of self
+				face_ = new ThreadsafeFace(face);
+				keyChain_ = keyChain;
 
-			// Register prefix for position(and action) related interest of self
+				keyChain_.setFace (face_.getFace());
+				certificateName_ = new Name (certificateName);
+
+				face_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
+			}
+
 			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + name);
-			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (positionKeyChain_, certificateName_, this);
-			positionFace_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
+			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this);
+			face_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 
 			interestExpressionOctantsLock_ = new Mutex ();
 			gameEntitiesLock_ = new Mutex ();
@@ -509,22 +513,10 @@ namespace remap.NDNMOG.DiscoveryModule
 					}
 				}
 
-				while (dataHandle.callbackCount_ < responseCount) {
-					//while (true){
-					face_.processEvents ();
-					System.Threading.Thread.Sleep (10);
-					sleepSeconds += 10;
-				}
-				dataHandle.callbackCount_ = 0;
-
 				// give the peer some time(3s) for it to process the unique names received, 
 				// and confirm with those unique names whether they are in my vicinity or not.
 				// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-				int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
-				sleepSeconds = 0;
-				if (interval > 0) {
-					Thread.Sleep (interval);
-				}
+				Thread.Sleep (Constants.BroadcastIntervalMilliSeconds);
 			}
 		}
 
@@ -544,6 +536,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				Console.WriteLine ("tPositionInterestExpression_ is not alive");
 			}
+			face_.stopProcessing ();
 		}
 
 		/// <summary>
@@ -559,9 +552,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
 				tPositionInterestExpression_.Start();
 
-				// The main event loop.  
-				// Wait to receive one interest for the prefix.
-
+				face_.startProcessing();
 			} catch (Exception e) {
 				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}
@@ -662,30 +653,17 @@ namespace remap.NDNMOG.DiscoveryModule
 						interest.setMustBeFresh (true);
 						interest.setExclude (copyGameEntities[i].getExclude());
 
-						positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
+						face_.expressInterest (interest, positionDataInterface, positionDataInterface);
 					} else {
 						// We will be expecting one less data response since interest is not expressed.
 						responseCount--;
 					}
 				}
 
-				while (positionDataInterface.callbackCount_ < responseCount) {
-					//while (true){
-					positionFace_.processEvents ();
-					System.Threading.Thread.Sleep (10);
-					sleepSeconds += 10;
-				}
-
-				positionDataInterface.callbackCount_ = 0;
-
 				// give the peer some time(3s) for it to process the unique names received, 
 				// and confirm with those unique names whether they are in my vicinity or not.
 				// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-				int interval = Constants.PositionIntervalMilliSeconds - sleepSeconds;
-				sleepSeconds = 0;
-				if (interval > 0) {
-					Thread.Sleep (interval);
-				}
+				Thread.Sleep (Constants.PositionIntervalMilliSeconds);
 			}
 		}
 	}

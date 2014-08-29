@@ -12,7 +12,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <summary>
 		/// Get bytes from input unsigned integer. This method exists so that little/big endian won't be interpretted differently
 		/// </summary>
-		/// <returns>The bytes from U int32.</returns>
+		/// <returns>The bytes from Uint32.</returns>
 		/// <param name="input">Input.</param>
 		public static byte[] getBytesFromUInt32(UInt32 input)
 		{
