@@ -37,6 +37,21 @@ namespace remap.NDNMOG.DiscoveryModule
 			instance_ = instance;
 		}
 
+		/// <summary>
+		/// receiveExpectedSequence tells if the received sequence is expected.
+		/// </summary>
+		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
+		/// <param name="seq1">Current sequence number of local instance.</param>
+		/// <param name="seq2">Received sequence number in interest.</param>
+		public static Boolean receiveExpectedSequence(long seq1, long seq2)
+		{
+			if (seq1 - seq2 > Constants.SequenceThreshold || (seq1 < seq2 && seq1 > Constants.SequenceThreshold)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+
 		// To publish content to memory content cache would be ideal.
 
 		/// <summary>
@@ -62,15 +77,18 @@ namespace remap.NDNMOG.DiscoveryModule
 			// should print the latency between generating and actually receiving interest and answering
 			if (interest.getName ().size () == (newName.size () + 3)) {
 				long sequenceNumber = instance_.getSelfGameEntity ().getSequenceNumber ();
-				Console.WriteLine ("Here Current seq number is " + sequenceNumber);
-
 				data.getName ().append (Name.Component.fromNumber(sequenceNumber));
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
 			} else {
 				long sequenceNumber = PositionDataInterface.getSequenceFromName(interest.getName());
-				Console.WriteLine ("Current seq number is " + sequenceNumber);
-
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
+
+				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
+				if (receiveExpectedSequence(currentSequence, sequenceNumber)) {
+					Console.WriteLine ("Requested sequence has fallen behind, or is ahead");
+					// For such situations, receiver should tell sender to send an interest without sequence number
+					// This case is ignored, for now
+				}
 			}
 
 			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
@@ -151,6 +169,12 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		/// <summary>
+		/// Judge sequence tells if the latter sequence should be accepted as the new sequence number.
+		/// </summary>
+		/// <returns><c>true</c>, if seq1 is smaller than seq2, and seq2 should be taken as the new sequence, <c>false</c> otherwise.</returns>
+		/// <param name="seq1">Seq1.</param>
+		/// <param name="seq2">Seq2.</param>
 		public Boolean judgeSequence(long seq1, long seq2)
 		{
 			if (seq1 < seq2 || seq1 == Constants.MaxSequenceNumber - 1 || seq1 == Constants.DefaultSequenceNumber) {
