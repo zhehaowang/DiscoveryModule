@@ -30,22 +30,38 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="keyChain">Key chain.</param>
 		/// <param name="certificateName">Certificate name.</param>
 		/// <param name="instance">The local game instance.</param>
-		public PositionInterestInterface (KeyChain keyChain, Name certificateName, Instance instance)
+		public PositionInterestInterface (KeyChain keyChain, Name certificateName, Instance instance, LoggingCallback loggingCallback)
 		{
-			keyChain_ = keyChain;      
+			keyChain_ = keyChain;
 			certificateName_ = certificateName;
 			instance_ = instance;
+			loggingCallback_ = loggingCallback;
 		}
 
 		/// <summary>
-		/// receiveExpectedSequence tells if the received sequence is expected.
+		/// isSenderFallingBehind tells if the received sequence is expected.
 		/// </summary>
 		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Current sequence number of local instance.</param>
 		/// <param name="seq2">Received sequence number in interest.</param>
-		public static Boolean receiveExpectedSequence(long seq1, long seq2)
+		public static Boolean isSenderFallingBehind(long seq1, long seq2)
 		{
-			if (seq1 - seq2 > Constants.SequenceThreshold || (seq1 < seq2 && seq1 > Constants.SequenceThreshold)) {
+			if (seq1 - seq2 > Constants.MaxSequenceThreshold || (seq1 < seq2 && seq1 > Constants.MaxSequenceThreshold)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// isSenderFallingBehind tells if the received sequence is expected.
+		/// </summary>
+		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
+		/// <param name="seq1">Current sequence number of local instance.</param>
+		/// <param name="seq2">Received sequence number in interest.</param>
+		public static Boolean isSenderAhead(long seq1, long seq2)
+		{
+			if (seq2 > seq1 && seq2 - seq1 < Constants.MinSequenceThreshold || (seq1 > (Constants.MaxSequenceNumber - Constants.MinSequenceThreshold) && seq2 < Constants.MinSequenceThreshold)) {
 				return true;
 			} else {
 				return false;
@@ -63,7 +79,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="registeredPrefixId">Registered prefix identifier.</param>
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			Console.WriteLine ("Interest received: " + interest.toUri());
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: " + interest.toUri());
 
 			//Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
@@ -81,13 +97,20 @@ namespace remap.NDNMOG.DiscoveryModule
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
 			} else {
 				long sequenceNumber = PositionDataInterface.getSequenceFromName(interest.getName());
-				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
 
 				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
-				if (receiveExpectedSequence(currentSequence, sequenceNumber)) {
-					Console.WriteLine ("Requested sequence has fallen behind, or is ahead");
+				if (isSenderAhead (currentSequence, sequenceNumber)) {
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with most recent data");
+
+					returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
+				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), doing nothing right now");
 					// For such situations, receiver should tell sender to send an interest without sequence number
 					// This case is ignored, for now
+					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
+				} else {
+					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
+					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
 				}
 			}
 
@@ -97,14 +120,14 @@ namespace remap.NDNMOG.DiscoveryModule
 			try {
 				keyChain_.sign (data, certificateName_);
 			} catch (SecurityException exception) {
-				Console.WriteLine ("SecurityException in sign: " + exception.Message);
+				loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
 			}
 
 			Blob encodedData = data.wireEncode ();
 			try {
 				transport.send (encodedData.buf ());
 			} catch (Exception ex) {
-				Console.WriteLine ("Exception in sending data " + ex.Message);
+				loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
 			}
 		}
 
@@ -114,12 +137,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="prefix">The failed prefix.</param>
 		public void onRegisterFailed (Name prefix)
 		{
-			Console.WriteLine ("Register failed for prefix " + prefix.toUri ());
+			loggingCallback_ ("ERROR", "Position: Register failed for prefix " + prefix.toUri ());
 		}
 
 		KeyChain keyChain_;
 		Name certificateName_;
 		Instance instance_;
+		LoggingCallback loggingCallback_;
 	}
 
 	/// <summary>
@@ -134,9 +158,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// A reference to instance is passed here so that position info belonging to that instance can be accessed.
 		/// </summary>
 		/// <param name="instance">Instance.</param>
-		public PositionDataInterface(Instance instance)
+		public PositionDataInterface(Instance instance, LoggingCallback loggingCallback)
 		{
 			instance_ = instance;
+			loggingCallback_ = loggingCallback;
 		}
 
 		/// <summary>
@@ -203,9 +228,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
-			++callbackCount_;
-			Console.WriteLine 
-			("Data " + data.getName().toUri() + " received: " + contentStr + " Freshness period: " + data.getMetaInfo().getFreshnessPeriod());
+			loggingCallback_ 
+			("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
 
 			string entityName = getEntityNameFromName (data.getName ());
 			long sequenceNumber = getSequenceFromName (data.getName ());
@@ -276,7 +300,11 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			} else {
 				// Don't expect this to happen
-				Console.WriteLine("Received name (" + entityName + ") does not have a gameEntity stored locally, or sequence does not match.");
+				if (gameEntity == null) {
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") does not have a gameEntity stored locally");
+				} else {
+					loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: Sequence rejected. Local: " + gameEntity.getSequenceNumber() + "; Received: " + sequenceNumber);
+				}
 			}
 		}
 
@@ -288,13 +316,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="interest">Interest.</param>
 		public void onTimeout (Interest interest)
 		{
-			++callbackCount_;
-			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
+			loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
 			string entityName = getEntityNameFromName (interest.getName ());
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 			if (gameEntity.incrementTimeOut ()) {
-				Console.WriteLine (entityName + " could have dropped.");
+				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
 				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
 				Vector3 prevLocation = gameEntity.getLocation ();
 				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
@@ -313,8 +340,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
-		public int callbackCount_;
 		private Instance instance_;
+		private LoggingCallback loggingCallback_;
 	}
 }
 

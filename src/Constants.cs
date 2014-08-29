@@ -45,9 +45,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int BroadcastIntervalMilliSeconds = 3000;
 
 		// Time out value for position update interest
-		public const int PositionTimeoutMilliSeconds = 500;
+		public const int PositionTimeoutMilliSeconds = 800;
 		// Interval for position update if it brought back position data
-		public const int PositionIntervalMilliSeconds = 150;
+		public const int PositionIntervalMilliSeconds = 200;
 
 		// Freshness period for broadcast digest data
 		public const int DigestDataFreshnessSeconds = 20;
@@ -87,6 +87,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int MaxSequenceNumber = 256;
 		public const int DefaultSequenceNumber = -1;
 
-		public const int SequenceThreshold = 30;
+		// When local sequence number is ahead of received sequence number by at least 30, the remote sequence number should be reset
+		public const int MaxSequenceThreshold = 30;
+		// When received sequence number is ahead of local sequence number by at most 3, local should reply with most recent published position
+		// Expect this to happen once when startup.
+		public const int MinSequenceThreshold = 3;
 	}
 }

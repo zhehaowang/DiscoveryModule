@@ -15,7 +15,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			string name = characterName;
 
-			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null); 
+			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null, null); 
 
 			instance.discovery ();
 

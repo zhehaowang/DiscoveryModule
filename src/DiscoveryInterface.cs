@@ -10,10 +10,10 @@ namespace remap.NDNMOG.DiscoveryModule
 {
 	public class DiscoveryDataInterface : OnData, OnTimeout
 	{
-		public DiscoveryDataInterface (Instance instance)
+		public DiscoveryDataInterface (Instance instance, LoggingCallback loggingCallback)
 		{
-			this.callbackCount_ = 0;
 			this.instance_ = instance;
+			this.loggingCallback_ = loggingCallback;
 		}
 
 		/// <summary>
@@ -44,7 +44,7 @@ namespace remap.NDNMOG.DiscoveryModule
 						if (oct != null && oct.isTracking()) {
 							for (i = 0; i < namesStr.Length - 1; i++) {
 								if (!oct.getNameDataset ().containsName (namesStr [i])) {
-									Console.WriteLine ("Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+									loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery parseData: Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
 									instance_.addGameEntityByName(namesStr[i]);
 								}
 							}
@@ -53,7 +53,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 			catch {
-				Console.WriteLine ("Did not receive octant name data");
+				loggingCallback_ ("ERROR", "Discovery parseData: Did not receive octant name data");
 			}
 			return;
 		}
@@ -67,19 +67,17 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
-			++callbackCount_;
-			Console.WriteLine ("Data received: " + contentStr + " Data freshness period : " + data.getMetaInfo().getFreshnessPeriod());
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnData: Received: " + data.getName().toUri() + "; content: " + contentStr);
 			parseContent (interest, data);
 		}
 
 		public void onTimeout (Interest interest)
 		{
-			++callbackCount_;
-			System.Console.Out.WriteLine ("Time out for interest " + interest.getName ().toUri ());
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnTimeout: Time out for interest " + interest.getName ().toUri ());
 		}
 
-		public int callbackCount_;
 		private Instance instance_;
+		private LoggingCallback loggingCallback_;
 	}
 
 	/// <summary>
@@ -87,11 +85,12 @@ namespace remap.NDNMOG.DiscoveryModule
 	/// </summary>
 	public class DiscoveryInterestInterface : OnInterest, OnRegisterFailed
 	{
-		public DiscoveryInterestInterface (KeyChain keyChain, Name certificateName, Instance instance)
+		public DiscoveryInterestInterface (KeyChain keyChain, Name certificateName, Instance instance, LoggingCallback loggingCallback)
 		{ 
 			keyChain_ = keyChain;      
 			certificateName_ = certificateName;
 			instance_ = instance;
+			loggingCallback_ = loggingCallback;
 		}
 
 		public static List<int> octantIndexFromInterestURI(string[] interestURI)
@@ -123,7 +122,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public List<Octant> parseDigest(Interest interest)
 		{
 			string interestNameStr = interest.getName().toUri ();
-			Console.WriteLine ("Interestname string is : " + interestNameStr);
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnInterest : Received " + interestNameStr);
 			string[] nameComponentStr = interestNameStr.Split ('/');
 
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
@@ -208,15 +207,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			try {
 				keyChain_.sign (data, certificateName_);
 			} catch (SecurityException exception) {
-				Console.WriteLine ("SecurityException in sign: " + exception.Message);
+				loggingCallback_ ("ERROR", "Discovery OnInterest: SecurityException in sign: " + exception.Message);
 			}
 			return data;
 		}
 
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			Console.WriteLine ("Interest received: " + interest.toUri());
-
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
 				Data data = constructData (interest, octants);
@@ -232,12 +229,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onRegisterFailed (Name prefix)
 		{
-			Console.WriteLine ("Register failed for prefix " + prefix.toUri ());
+			loggingCallback_ ("ERROR", "Discovery OnInterest: Register failed for prefix " + prefix.toUri ());
 		}
 
-		KeyChain keyChain_;
-		Name certificateName_;
-		Instance instance_;
+		private KeyChain keyChain_;
+		private Name certificateName_;
+		private Instance instance_;
+		private LoggingCallback loggingCallback_;
 	}
 }
 

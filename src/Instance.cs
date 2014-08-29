@@ -14,7 +14,7 @@ using net.named_data.jndn.tests;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
-	// TODO: noticed the problem of "Object reference not set to an instance of an object" after one node drops
+	public delegate bool LoggingCallback(string type, string info);
 
 	/// <summary>
 	/// Instance: for periodic broadcast of sync style message.
@@ -60,8 +60,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
 
-		// The callback given by Unity to this instance
+		// The callback given by Unity to set position in Unity
 		private SetPosCallback setPosCallback_;
+		// The callback given by Unity to log into specific files
+		private LoggingCallback loggingCallback_;
 
 		/// <summary>
 		/// Instance class is supposed to be generated from an initial position of the player,
@@ -70,10 +72,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, Face face = null, KeyChain keyChain = null, Name certificateName = null)
+		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, Face face = null, KeyChain keyChain = null, Name certificateName = null)
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			setPosCallback_ = setPosCallback;
+			loggingCallback_ = loggingCallback;
 
 			gameEntities_ = new List<GameEntity> ();
 
@@ -82,7 +85,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			interestExpressionOctants_ = new List<Octant> ();
 
 			if (index.Count != Constants.octreeLevel) {
-				Console.WriteLine ("Cannot instantiate from non-leaf location.");
+				loggingCallback_ ("ERROR", "Initialization: Cannot instantiate from non-leaf location.");
 				return;
 			}
 
@@ -137,7 +140,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 
 			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + name);
-			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this);
+			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
 			face_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 
 			interestExpressionOctantsLock_ = new Mutex ();
@@ -393,7 +396,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			Octant temp = oct;
 			int i = Constants.octreeLevel - index.Count + 1;
 			if (i < 1) {
-				Console.WriteLine ("Given octant's indices doesn't fit in valid octree level");
+				loggingCallback_ ("ERROR", "trackOctant: Given octant's indices doesn't fit in valid octree level");
 				return;
 			}
 			for (; i<Constants.validOctreeLevel; i++)
@@ -404,7 +407,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			// register prefix for its parent
 			string filterPrefixStr = temp.getListIndexAsString ();
 			if (!trackingPrefixes_.Contains (filterPrefixStr)) {
-				DiscoveryInterestInterface interestHandle = new DiscoveryInterestInterface (keyChain_, certificateName_, this);
+				DiscoveryInterestInterface interestHandle = new DiscoveryInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
 
 				Name prefix = new Name(Constants.BroadcastPrefix + filterPrefixStr);
 				long id = face_.registerPrefix (prefix, interestHandle, interestHandle);
@@ -437,7 +440,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			Octant temp = oct;
 			int i = Constants.octreeLevel - index.Count + 1;
 			if (i < 1) {
-				Console.WriteLine ("Given octant's indices doesn't fit in valid octree level");
+				loggingCallback_ ("ERROR", "untrackOctant: Given octant's indices doesn't fit in valid octree level");
 				return;
 			}
 			for (; i < Constants.validOctreeLevel; i++) {
@@ -474,7 +477,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			int count = 0;
 
 			// Data interface does not need keyChain_ or certificateName_, yet
-			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this);
+			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this, loggingCallback_);
 			while (true) {
 				// TODO: Implement which octant to express interest towards: Could be done in another thread which constants receives the location from Unity instance
 				// 		using MutexLock when modifying interestExpressionOctants_. Could be more closely coupled with Unity instance.
@@ -500,9 +503,9 @@ namespace remap.NDNMOG.DiscoveryModule
 						interest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
 
 						// interesting notes: the override with name as first component times out, the override with default constructed interest as first component does not time out
-						long pid = face_.expressInterest (interest, dataHandle, dataHandle);
+						face_.expressInterest (interest, dataHandle, dataHandle);
 
-						Console.WriteLine ("Interest PIT ID: " + pid + " expressed : " + interest.toUri ());
+						loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery ExpressInterest: " + interest.toUri ());
 					} else {
 
 					}
@@ -524,15 +527,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (tInterestExpression_.IsAlive) {
 				tInterestExpression_.Abort ();
 			} else {
-				Console.WriteLine ("tInterestExpression is not alive");
+				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:discovery expression thread is not alive");
 			}
 			if (tPositionInterestExpression_.IsAlive) {
 				tPositionInterestExpression_.Abort ();
 			} else {
-				Console.WriteLine ("tPositionInterestExpression_ is not alive");
+				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:position interest thread is not alive");
 			}
 			if (publisherThread_.IsAlive) {
 				publisherThread_.Abort ();
+			} else {
+				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
 			}
 			face_.stopProcessing ();
 		}
@@ -555,7 +560,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				face_.startProcessing();
 			} catch (Exception e) {
-				Console.WriteLine ("exception: " + e.Message + "\nStack trace: " + e.StackTrace);
+				loggingCallback_ ("ERROR", "Discovery Exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}
 		}
 
@@ -642,7 +647,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
-			PositionDataInterface positionDataInterface = new PositionDataInterface (this);
+			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
 
 			while (true) {
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop

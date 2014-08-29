@@ -63,7 +63,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// gemerate an instance with the name of "mytest", at startingLoc
 			Vector3 location = new Vector3 (6750, 3550, 4800);
-			Instance instance = new Instance (startingLoc, "live", location, null);
+			Instance instance = new Instance (startingLoc, "live", location, null, null);
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
@@ -97,7 +97,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Console.WriteLine (interest1.toUri ());
 
 			// assumes that another instance receives the above constructed interest, and tries to decode and decide what to return.
-			Instance instance1 = new Instance (startingLoc, "anotherinstance", location, null);
+			Instance instance1 = new Instance (startingLoc, "anotherinstance", location, null, null);
 			// test for constructing data packet for given interest.
 			Face face = new Face ("localhost");
 
