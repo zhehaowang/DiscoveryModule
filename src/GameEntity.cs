@@ -29,6 +29,17 @@ namespace remap.NDNMOG.DiscoveryModule
 		private long sequenceNumber_;
 
 		private SetPosCallback setPosCallback_;
+		private long milliseconds_;
+
+		public void setMilliseconds()
+		{
+			milliseconds_ = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+		}
+
+		public long getMilliseconds()
+		{
+			return milliseconds_;
+		}
 
 		public void initialize(string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
 		{
@@ -44,7 +55,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
 				locationArray_ [i] = new Vector3 (0, 0, 0);
 			}
-
+			milliseconds_ = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 		}
 
 		public GameEntity (string name, EntityType entityType)

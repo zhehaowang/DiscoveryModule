@@ -69,11 +69,14 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnData: Received: " + data.getName().toUri() + "; content: " + contentStr);
 			parseContent (interest, data);
+
+
 		}
 
 		public void onTimeout (Interest interest)
 		{
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnTimeout: Time out for interest " + interest.getName ().toUri ());
+		
 		}
 
 		private Instance instance_;

@@ -45,7 +45,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int BroadcastIntervalMilliSeconds = 3000;
 
 		// Time out value for position update interest
-		public const int PositionTimeoutMilliSeconds = 800;
+		public const int PositionTimeoutMilliSeconds = 1000;
 		// Interval for position update if it brought back position data
 		public const int PositionIntervalMilliSeconds = 200;
 

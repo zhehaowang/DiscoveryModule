@@ -48,9 +48,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		private KeyChain keyChain_;
 		private Name certificateName_;
 
-		// Face for broadcast discovery interest
+		// Face for position update
 		// Always using default face_ localhost
-		private ThreadsafeFace face_;
+		private ThreadsafeFace positionFace_;
+
+		// Face for broadcast discovery
+		// Always using default face_ localhost
+		private ThreadsafeFace discoveryFace_;
 
 		// The list that stores other game entities than self
 		private List<GameEntity> gameEntities_;
@@ -109,14 +113,14 @@ namespace remap.NDNMOG.DiscoveryModule
 			name_ = name;
 
 			// Instantiate the face_, keyChain_ and certificateName_
-			if (face_ == null) {
-				face_ = new ThreadsafeFace(new Face ("localhost"));
+			if (positionFace_ == null) {
+				positionFace_ = new ThreadsafeFace(new Face ("localhost"));
 
 				MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
 				MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();
 				keyChain_ = new KeyChain (new IdentityManager (identityStorage, privateKeyStorage), 
 					new SelfVerifyPolicyManager (identityStorage));
-				keyChain_.setFace (face_.getFace());
+				keyChain_.setFace (positionFace_.getFace());
 
 				// Initialize the storage.
 				Name keyName = new Name ("/testname/DSK-123");
@@ -126,25 +130,35 @@ namespace remap.NDNMOG.DiscoveryModule
 				privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);
 
 				// Allow prefix registration for nfd
-				face_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
+				positionFace_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
 
+				discoveryFace_ = new ThreadsafeFace (new Face("localhost"));
+				// do I need keyChain.setFace?
+				discoveryFace_.getFace ().setCommandSigningInfo (keyChain_, certificateName_);
 			} else {
+				// TODO: This won't be executed now, and is not debugged; it will surely cause error.
+
 				// Register prefix for position(and action) related interest of self
-				face_ = new ThreadsafeFace(face);
+				positionFace_ = new ThreadsafeFace(face);
 				keyChain_ = keyChain;
 
-				keyChain_.setFace (face_.getFace());
+				keyChain_.setFace (positionFace_.getFace());
 				certificateName_ = new Name (certificateName);
 
-				face_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
+				positionFace_.getFace().setCommandSigningInfo (keyChain_, certificateName_);
 			}
 
 			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + name);
 			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
-			face_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
+			positionFace_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 
 			interestExpressionOctantsLock_ = new Mutex ();
 			gameEntitiesLock_ = new Mutex ();
+		}
+
+		public ThreadsafeFace getPositionFace()
+		{
+			return positionFace_;
 		}
 
 		/// <summary>
@@ -410,7 +424,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				DiscoveryInterestInterface interestHandle = new DiscoveryInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
 
 				Name prefix = new Name(Constants.BroadcastPrefix + filterPrefixStr);
-				long id = face_.registerPrefix (prefix, interestHandle, interestHandle);
+				long id = discoveryFace_.registerPrefix (prefix, interestHandle, interestHandle);
 
 				trackingPrefixes_.Add(filterPrefixStr, id);
 			}
@@ -452,7 +466,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (containsPrefix) {
 				if (!temp.hasTrackingChildren ()) {
 					trackingPrefixes_.Remove (filterPrefixStr);
-					face_.removeRegisteredPrefix ((long)trackingPrefixes_[filterPrefixStr]);
+					discoveryFace_.removeRegisteredPrefix ((long)trackingPrefixes_[filterPrefixStr]);
 				}
 			}
 
@@ -479,10 +493,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this, loggingCallback_);
 			while (true) {
-				// TODO: Implement which octant to express interest towards: Could be done in another thread which constants receives the location from Unity instance
-				// 		using MutexLock when modifying interestExpressionOctants_. Could be more closely coupled with Unity instance.
-				// TODO: Check if there's moments main event loop will not be running or fail to get out?
-
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
 				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
@@ -505,7 +515,7 @@ namespace remap.NDNMOG.DiscoveryModule
 						interest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
 
 						// interesting notes: the override with name as first component times out, the override with default constructed interest as first component does not time out
-						face_.expressInterest (interest, dataHandle, dataHandle);
+						discoveryFace_.expressInterest (interest, dataHandle, dataHandle);
 
 						loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery ExpressInterest: " + interest.toUri ());
 					} else {
@@ -541,7 +551,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
 			}
-			face_.stopProcessing ();
+			discoveryFace_.stopProcessing ();
+			positionFace_.stopProcessing ();
 		}
 
 		/// <summary>
@@ -551,16 +562,20 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			try {
 				// Thread for expressing interest.
+
+
 				tInterestExpression_ = new Thread(this.discoveryExpressInterest);
 				tInterestExpression_.Start();
-
+				/*
 				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
 				tPositionInterestExpression_.Start();
+				*/
 
 				publisherThread_ = new Thread(this.publishLocation);
 				publisherThread_.Start();
 
-				face_.startProcessing();
+				positionFace_.startProcessing();
+				discoveryFace_.startProcessing();
 			} catch (Exception e) {
 				loggingCallback_ ("ERROR", "Discovery Exception: " + e.Message + "\nStack trace: " + e.StackTrace);
 			}
@@ -594,6 +609,9 @@ namespace remap.NDNMOG.DiscoveryModule
 				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.Add (gameEntity);
 				gameEntitiesLock_.ReleaseMutex ();
+
+				PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
+				positionDataInterface.positionExpressInterest (gameEntity);
 				return true;
 			} else {
 				return false;
@@ -642,61 +660,5 @@ namespace remap.NDNMOG.DiscoveryModule
 			return null;
 		}
 
-		/// <summary>
-		/// Express position interest with positionFace_ towards given name
-		/// </summary>
-		/// <param name="name">Name.</param>
-		public void positionExpressInterest()
-		{
-			int count = 0;
-
-			// TODO: There is always only one position data interface, which could cause potential problems...
-			// How do I test/verify?
-			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
-
-			while (true) {
-				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
-				List<GameEntity> copyGameEntities = new List<GameEntity> (gameEntities_);
-				gameEntitiesLock_.ReleaseMutex ();
-				count = copyGameEntities.Count;
-
-				// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
-				for (int i = 0; i < count; i++) {
-					// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
-					if (copyGameEntities [i] != null) {
-						// Position interest name is assumed to be only the Prefix + EntityName for now
-						Name interestName = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + copyGameEntities [i].getName () + Constants.PositionPrefix);
-						if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
-							interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
-							Interest interest = new Interest (interestName);
-
-							interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
-							interest.setMustBeFresh (true);
-
-							face_.expressInterest (interest, positionDataInterface, positionDataInterface);
-							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
-						} else {
-							Interest interest = new Interest (interestName);
-
-							interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
-							interest.setMustBeFresh (true);
-							// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
-							interest.setChildSelector (1);
-
-							face_.expressInterest (interest, positionDataInterface, positionDataInterface);	
-							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
-						}
-					} else {
-
-					}
-				}
-
-				// give the peer some time(3s) for it to process the unique names received, 
-				// and confirm with those unique names whether they are in my vicinity or not.
-				// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-				Thread.Sleep (Constants.PositionIntervalMilliSeconds);
-			}
-		}
 	}
 }

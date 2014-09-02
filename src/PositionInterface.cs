@@ -89,7 +89,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			Data data = new Data (interest.getName());
 
 			Name newName = new Name (Constants.AlephPrefix);
-			Console.WriteLine (interest.getName ().size () + " " + (newName.size () + 3));
 
 			// should print the latency between generating and actually receiving interest and answering
 			if (interest.getName ().size () == (newName.size () + 3)) {
@@ -198,6 +197,47 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
+		/// Express position interest with positionFace_ towards given gameEntity,
+		/// This method may block thread execution for at most Constants.PositionIntervalMilliSeconds milliseconds
+		/// It should always be called at the end of an onData or on onTimeout function
+		/// </summary>
+		/// <param name="name">Name.</param>
+		public void positionExpressInterest(GameEntity gameEntity)
+		{
+			long milliseconds = gameEntity.getMilliseconds () + Constants.PositionIntervalMilliSeconds - 
+				DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+			if (milliseconds > 0) {
+				Thread.Sleep (Convert.ToInt32(milliseconds));
+			}
+
+			Name interestName = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + gameEntity.getName () + Constants.PositionPrefix);
+			if (gameEntity.getSequenceNumber () != Constants.DefaultSequenceNumber) {
+				interestName.append (Name.Component.fromNumber ((gameEntity.getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
+				Interest interest = new Interest (interestName);
+
+				interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
+				interest.setMustBeFresh (true);
+
+				instance_.getPositionFace().expressInterest (interest, this, this);
+
+				gameEntity.setMilliseconds ();
+				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
+			} else {
+				Interest interest = new Interest (interestName);
+
+				interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
+				interest.setMustBeFresh (true);
+				// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
+				interest.setChildSelector (1);
+
+				instance_.getPositionFace().expressInterest (interest, this, this);	
+
+				gameEntity.setMilliseconds ();
+				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
+			}
+		}
+
+		/// <summary>
 		/// Judge sequence tells if the latter sequence should be accepted as the new sequence number.
 		/// </summary>
 		/// <returns><c>true</c>, if seq1 is smaller than seq2, and seq2 should be taken as the new sequence, <c>false</c> otherwise.</returns>
@@ -253,8 +293,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 					gameEntity.resetTimeOut ();
 
-					// TODO: Test following logic
-					// Cross thread reference without mutex is still a problem here.
 					List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
 
 					if (octantIndices != null) {
@@ -284,6 +322,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 								oct.addName (entityName);
 								oct.setDigestComponent ();
+
+								positionExpressInterest (gameEntity);
 							} else {
 								// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
 								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
@@ -297,13 +337,17 @@ namespace remap.NDNMOG.DiscoveryModule
 
 									oct.setDigestComponent ();
 									prevOct.setDigestComponent ();
+
+									positionExpressInterest (gameEntity);
 								}
 							}
 						}
 					}
 				} else {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset");
+
 					gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
+					positionExpressInterest (gameEntity);
 				}
 			} else {
 				// Don't expect this to happen
@@ -328,7 +372,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 			if (gameEntity.incrementTimeOut ()) {
-				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
+				loggingCallback_ ("INFO", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
 				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
 				Vector3 prevLocation = gameEntity.getLocation ();
 				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
@@ -344,6 +388,10 @@ namespace remap.NDNMOG.DiscoveryModule
 					instance_.removeGameEntityByName (entityName);
 				}
 				gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
+			} else {
+
+				gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
+				positionExpressInterest (gameEntity);
 			}
 		}
 
