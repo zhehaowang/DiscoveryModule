@@ -29,8 +29,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			instance.trackOctant (instance.getOctantByIndex(CommonUtility.getOctantIndicesFromVector3(location)));
 
 			while (true) {
-				instance.getSelfGameEntity ().setLocation (location.x_ + (new Random().Next(-5, 5)), location.y_ + (new Random().Next(-5, 5)), location.z_ + (new Random().Next(-5, 5)));
-				System.Threading.Thread.Sleep (1000);
+				instance.getSelfGameEntity ().setLocation (location.x_ + (new Random().Next(-1, 1)), location.y_ + (new Random().Next(-1, 1)), location.z_ + (new Random().Next(-1, 1)));
+				System.Threading.Thread.Sleep (250);
 			}
 			//InterestInterface.parseDigest (interest1);
 		}
