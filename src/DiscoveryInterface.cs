@@ -55,11 +55,13 @@ namespace remap.NDNMOG.DiscoveryModule
 			catch {
 				loggingCallback_ ("ERROR", "Discovery parseData: Did not receive octant name data");
 			}
+				
 			return;
 		}
 
 		public void onData (Interest interest, Data data)
 		{
+			callbackCount_++;
 			ByteBuffer content = data.getContent ().buf ();
 
 			byte[] contentBytes = new byte[content.remaining()];
@@ -73,11 +75,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onTimeout (Interest interest)
 		{
+			callbackCount_++;
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnTimeout: Time out for interest " + interest.getName ().toUri ());
 		}
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
+		public int callbackCount_ = 0;
 	}
 
 	/// <summary>
@@ -214,6 +218,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
+			++callbackCount_;
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
 				Data data = constructData (interest, octants);
@@ -229,6 +234,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onRegisterFailed (Name prefix)
 		{
+			++callbackCount_;
 			loggingCallback_ ("ERROR", "Discovery OnInterest: Register failed for prefix " + prefix.toUri ());
 		}
 
@@ -236,6 +242,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Name certificateName_;
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
+
+		public int callbackCount_ = 0;
 	}
 }
 
