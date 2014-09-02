@@ -163,7 +163,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			instance_ = instance;
 			loggingCallback_ = loggingCallback;
 
-			onDataLock_ = new Mutex ();
+			//onDataLock_ = new Mutex ();
 		}
 
 		/// <summary>
@@ -397,7 +397,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
-		private Mutex onDataLock_;
+		//private Mutex onDataLock_;
 	}
 }
 
