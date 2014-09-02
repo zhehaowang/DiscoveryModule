@@ -25,25 +25,25 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void removeRegisteredPrefix(long registerPrefixID)
 		{
-			faceLock_.WaitOne ();
+			//faceLock_.WaitOne ();
 			face_.removeRegisteredPrefix (registerPrefixID);
-			faceLock_.ReleaseMutex ();
+			//faceLock_.ReleaseMutex ();
 			return;
 		}
 
 		public long expressInterest(Interest interest, OnData onData, OnTimeout onTimeout)
 		{
-			faceLock_.WaitOne ();
+			//faceLock_.WaitOne ();
 			long id = face_.expressInterest (interest, onData, onTimeout);
-			faceLock_.ReleaseMutex ();
+			//faceLock_.ReleaseMutex ();
 			return id;
 		}
 
 		public long registerPrefix(Name name, OnInterest onInterest, OnRegisterFailed onRegisterFailed)
 		{
-			faceLock_.WaitOne ();
+			//faceLock_.WaitOne ();
 			long id = face_.registerPrefix (name, onInterest, onRegisterFailed);
-			faceLock_.ReleaseMutex ();
+			//faceLock_.ReleaseMutex ();
 			return id;
 		}
 
@@ -51,9 +51,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void processEvents()
 		{
 			while (true) {
-				faceLock_.WaitOne ();
+				//faceLock_.WaitOne ();
 				face_.processEvents ();
-				faceLock_.ReleaseMutex ();
+				//faceLock_.ReleaseMutex ();
 				Thread.Sleep (25);
 			}
 		}

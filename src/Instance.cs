@@ -34,8 +34,9 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// The list of octants to express interest towards
 		private List<Octant> interestExpressionOctants_;
+
 		// This list can be modified by trackOctant thread, and referenced by discovery interest expression thread, so we need a mutex lock for it
-		private Mutex interestExpressionOctantsLock_;
+		//private Mutex interestExpressionOctantsLock_;
 
 		// The thread that handles broadcast interest expression
 		private Thread tInterestExpression_;
@@ -54,8 +55,9 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// The list that stores other game entities than self
 		private List<GameEntity> gameEntities_;
+
 		// This list can be modified by onDiscoveryData callback thread, and referenced by position interest expression thread, so we need a mutex lock for it
-		private Mutex gameEntitiesLock_;
+		//private Mutex gameEntitiesLock_;
 
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
@@ -143,8 +145,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
 			face_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
 
-			interestExpressionOctantsLock_ = new Mutex ();
-			gameEntitiesLock_ = new Mutex ();
+			//interestExpressionOctantsLock_ = new Mutex ();
+			//gameEntitiesLock_ = new Mutex ();
 		}
 
 		/// <summary>
@@ -418,9 +420,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			// add itself to the list of strings to express interest towards;
 			// TODO: change to detection of whether aggregation is needed to minimize the amount of interest sent
 			if (!interestExpressionOctants_.Contains (oct)) {
-				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				interestExpressionOctants_.Add (oct);
-				interestExpressionOctantsLock_.ReleaseMutex ();
+				//interestExpressionOctantsLock_.ReleaseMutex ();
 			}
 
 			oct.startTracking ();
@@ -460,9 +462,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			// TODO: change to detection of whether aggregation is needed to minimize the amount of interest sent
 			int idx = interestExpressionOctants_.IndexOf (oct);
 			if (idx != -1) {
-				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				interestExpressionOctants_.RemoveAt(idx);
-				interestExpressionOctantsLock_.ReleaseMutex ();
+				//interestExpressionOctantsLock_.ReleaseMutex ();
 			}
 		}
 
@@ -484,9 +486,9 @@ namespace remap.NDNMOG.DiscoveryModule
 				// TODO: Check if there's moments main event loop will not be running or fail to get out?
 
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-				interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
-				interestExpressionOctantsLock_.ReleaseMutex();
+				//interestExpressionOctantsLock_.ReleaseMutex();
 
 				//loggingCallback_ ("INFO", "working");
 
@@ -591,9 +593,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			if (getGameEntityByName (name) == null) {
 				GameEntity gameEntity = new GameEntity (name, EntityType.Player, new Vector3(Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity), setPosCallback_);
-				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.Add (gameEntity);
-				gameEntitiesLock_.ReleaseMutex ();
+				//gameEntitiesLock_.ReleaseMutex ();
 				return true;
 			} else {
 				return false;
@@ -612,9 +614,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (gameEntity == null) {
 				return false;
 			} else {
-				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.RemoveAt (gameEntities_.IndexOf (gameEntity));
-				gameEntitiesLock_.ReleaseMutex ();
+				//gameEntitiesLock_.ReleaseMutex ();
 				return true;
 			}
 		}
@@ -630,15 +632,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public GameEntity getGameEntityByName(string name)
 		{
-			gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+			//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 			for (int i = 0; i < gameEntities_.Count; i++) {
 				if (gameEntities_ [i].getName () == name) {
-					gameEntitiesLock_.ReleaseMutex ();
+					//gameEntitiesLock_.ReleaseMutex ();
 					return gameEntities_ [i];
 				}
 			}
 			// Make sure lock is released in both cases
-			gameEntitiesLock_.ReleaseMutex ();
+			//gameEntitiesLock_.ReleaseMutex ();
 			return null;
 		}
 
@@ -656,9 +658,9 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			while (true) {
 				// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				List<GameEntity> copyGameEntities = new List<GameEntity> (gameEntities_);
-				gameEntitiesLock_.ReleaseMutex ();
+				//gameEntitiesLock_.ReleaseMutex ();
 				count = copyGameEntities.Count;
 
 				// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
