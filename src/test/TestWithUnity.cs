@@ -9,13 +9,19 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 		{
 		}
 
+		public static bool loggingCallback(string info, string data)
+		{
+			Console.WriteLine (info + " " + data);
+			return true;
+		}
+
 		public static void main (string characterName = "default")
 		{
 			Vector3 location = new Vector3 (6750, 3550, 4800);
 
 			string name = characterName;
 
-			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null, null); 
+			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null, loggingCallback); 
 
 			instance.discovery ();
 

@@ -12,6 +12,7 @@ using net.named_data.jndn.tests;
 // <Company>.(<Product>|<Technology>)[.<Feature>][.<Subnamespace>]
 using System.Text;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -104,10 +105,10 @@ namespace remap.NDNMOG.DiscoveryModule
 
 					returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
 				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), doing nothing right now");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with catchup right now");
 					// For such situations, receiver should tell sender to send an interest without sequence number
 					// This case is ignored, for now
-					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
+					returnContent = "catch up";
 				} else {
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
 					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
@@ -162,6 +163,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			instance_ = instance;
 			loggingCallback_ = loggingCallback;
+
+			onDataLock_ = new Mutex ();
 		}
 
 		/// <summary>
@@ -234,70 +237,74 @@ namespace remap.NDNMOG.DiscoveryModule
 			string entityName = getEntityNameFromName (data.getName ());
 			long sequenceNumber = getSequenceFromName (data.getName ());
 
-			// since it's pointer reference, do I need to extend the mutex lock here?
+			// TODO: Remove the dependency on Instance_....or lock
+
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
-			string[] locationStr = contentStr.Split (',');
-
-			Vector3 location = new Vector3 (locationStr);
-
 			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
-				gameEntity.setSequenceNumber (sequenceNumber);
+				if (contentStr != "catch up") {
+					gameEntity.setSequenceNumber (sequenceNumber);
 
-				Vector3 prevLocation = gameEntity.getLocation ();
+					string[] locationStr = contentStr.Split (',');
+					Vector3 location = new Vector3 (locationStr);
 
-				gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
-				gameEntity.resetTimeOut ();
+					Vector3 prevLocation = gameEntity.getLocation ();
 
-				// TODO: Test following logic
-				// Cross thread reference without mutex is still a problem here.
-				List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
+					gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
+					gameEntity.resetTimeOut ();
 
-				if (octantIndices != null) {
-					Octant oct = instance_.getOctantByIndex (octantIndices);
-					if (oct == null || (!oct.isTracking ())) {
-						// this instance does not care about this octant for now: this game entity is no longer cared about as well
-						// it should be removed from the list of gameEntities, and no more position interest should be issued towards it.
-						if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
-							// The info we received is about an entity who is not being cared about now and was not cared about before
-							// We don't have to do anything about it, except removing it from our list of names to express interest towards
-							instance_.removeGameEntityByName (entityName);
-						} else {
-							// This entity has left previous octant
-							List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
-							Octant prevOct = instance_.getOctantByIndex (prevIndices);
-							// NameDataset class should need MutexLock for its names
-							prevOct.removeName (entityName);
-							prevOct.setDigestComponent ();
+					// TODO: Test following logic
+					// Cross thread reference without mutex is still a problem here.
+					List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
 
-							instance_.removeGameEntityByName (entityName);
-						}
-					} else {
-						// only x_ should be enough for telling if prevLocation does not exist, need to work with the actual boundary of the game though
-						if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
-							// This entity is newly discovered, and it is cared about
-							// so it should be added to the list of names
-
-							oct.addName (entityName);
-							oct.setDigestComponent ();
-						} else {
-							// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
-							List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
-							// And need to make sure equals method works
-							if (!octantIndices.Equals (prevIndices)) {
-								// Game entity moved from one octant to another, and both are cared about by this instance
-								oct.addName (entityName);
+					if (octantIndices != null) {
+						Octant oct = instance_.getOctantByIndex (octantIndices);
+						if (oct == null || (!oct.isTracking ())) {
+							// this instance does not care about this octant for now: this game entity is no longer cared about as well
+							// it should be removed from the list of gameEntities, and no more position interest should be issued towards it.
+							if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+								// The info we received is about an entity who is not being cared about now and was not cared about before
+								// We don't have to do anything about it, except removing it from our list of names to express interest towards
+								instance_.removeGameEntityByName (entityName);
+							} else {
+								// This entity has left previous octant
+								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
 								Octant prevOct = instance_.getOctantByIndex (prevIndices);
 								// NameDataset class should need MutexLock for its names
 								prevOct.removeName (entityName);
-
-								oct.setDigestComponent ();
 								prevOct.setDigestComponent ();
+
+								instance_.removeGameEntityByName (entityName);
+							}
+						} else {
+							// only x_ should be enough for telling if prevLocation does not exist, need to work with the actual boundary of the game though
+							if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+								// This entity is newly discovered, and it is cared about
+								// so it should be added to the list of names
+
+								oct.addName (entityName);
+								oct.setDigestComponent ();
+							} else {
+								// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
+								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+								// And need to make sure equals method works
+								if (!octantIndices.Equals (prevIndices)) {
+									// Game entity moved from one octant to another, and both are cared about by this instance
+									oct.addName (entityName);
+									Octant prevOct = instance_.getOctantByIndex (prevIndices);
+									// NameDataset class should need MutexLock for its names
+									prevOct.removeName (entityName);
+
+									oct.setDigestComponent ();
+									prevOct.setDigestComponent ();
+								}
 							}
 						}
 					}
+				} else {
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset");
+					gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
 				}
-
 			} else {
 				// Don't expect this to happen
 				if (gameEntity == null) {
@@ -342,6 +349,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
+		private Mutex onDataLock_;
 	}
 }
 

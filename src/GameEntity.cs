@@ -1,4 +1,5 @@
 ﻿using System;
+
 using net.named_data.jndn;
 
 namespace remap.NDNMOG.DiscoveryModule
@@ -29,39 +30,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private SetPosCallback setPosCallback_;
 
-		public GameEntity (string name, EntityType entityType)
-		{
-			name_ = name;
-			entityType_ = entityType;
-			location_ = new Vector3 (0, 0, 0);
-			timeoutCount_ = 0;
-			setPosCallback_ = null;
-			previousRespondTime_ = 0;
-
-			sequenceNumber_ = Constants.DefaultSequenceNumber;
-			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
-			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
-				locationArray_ [i] = new Vector3 (0, 0, 0);
-			}
-		}
-
-		public GameEntity (string name, EntityType entityType, Vector3 location)
-		{
-			name_ = name;
-			entityType_ = entityType;
-			location_ = new Vector3 (location);
-			timeoutCount_ = 0;
-			setPosCallback_ = null;
-			previousRespondTime_ = 0;
-
-			sequenceNumber_ = Constants.DefaultSequenceNumber;
-			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
-			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
-				locationArray_ [i] = new Vector3 (0, 0, 0);
-			}
-		}
-
-		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
+		public void initialize(string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
 		{
 			name_ = name;
 			entityType_ = entityType;
@@ -75,22 +44,27 @@ namespace remap.NDNMOG.DiscoveryModule
 			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
 				locationArray_ [i] = new Vector3 (0, 0, 0);
 			}
+
+		}
+
+		public GameEntity (string name, EntityType entityType)
+		{
+			initialize (name, entityType, new Vector3(0, 0, 0), null);
+		}
+
+		public GameEntity (string name, EntityType entityType, Vector3 location)
+		{
+			initialize (name, entityType, location, null);
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
 		{
-			name_ = name;
-			entityType_ = entityType;
-			location_ = new Vector3 (x, y, z);
-			timeoutCount_ = 0;
-			setPosCallback_ = null;
-			previousRespondTime_ = 0;
+			initialize (name, entityType, new Vector3(x, y, z), null);
+		}
 
-			sequenceNumber_ = Constants.DefaultSequenceNumber;
-			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
-			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
-				locationArray_ [i] = new Vector3 (0, 0, 0);
-			}
+		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
+		{
+			initialize (name, entityType, location, setPosCallback);
 		}
 
 		public string getName()

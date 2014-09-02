@@ -87,8 +87,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int MaxSequenceNumber = 256;
 		public const int DefaultSequenceNumber = -1;
 
-		// When local sequence number is ahead of received sequence number by at least 30, the remote sequence number should be reset
-		public const int MaxSequenceThreshold = 30;
+		// When local sequence number is ahead of received sequence number by at least 20, the remote sequence number should be reset
+		public const int MaxSequenceThreshold = 20;
 		// When received sequence number is ahead of local sequence number by at most 3, local should reply with most recent published position
 		// Expect this to happen once when startup.
 		public const int MinSequenceThreshold = 3;

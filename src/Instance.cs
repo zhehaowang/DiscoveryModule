@@ -488,6 +488,8 @@ namespace remap.NDNMOG.DiscoveryModule
 				List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
 				interestExpressionOctantsLock_.ReleaseMutex();
 
+				//loggingCallback_ ("INFO", "working");
+
 				count = copyOctantsList.Count;
 				for (i = 0; i<count; i++)
 				{
@@ -647,6 +649,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
+
+			// TODO: There is always only one position data interface, which could cause potential problems...
+			// How do I test/verify?
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
 
 			while (true) {
@@ -670,6 +675,7 @@ namespace remap.NDNMOG.DiscoveryModule
 							interest.setMustBeFresh (true);
 
 							face_.expressInterest (interest, positionDataInterface, positionDataInterface);
+							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 						} else {
 							Interest interest = new Interest (interestName);
 
@@ -678,7 +684,9 @@ namespace remap.NDNMOG.DiscoveryModule
 							// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
 							interest.setChildSelector (1);
 
-							face_.expressInterest (interest, positionDataInterface, positionDataInterface);						}
+							face_.expressInterest (interest, positionDataInterface, positionDataInterface);	
+							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
+						}
 					} else {
 
 					}
