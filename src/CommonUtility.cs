@@ -83,15 +83,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			return result;
 		}
 
-		// TODO: test this mapping method
 		public static List<int> getOctantIndicesFromVector3(Vector3 inputVector)
 		{
-			// stub method for coordinate => octant indices mapping
 			string indexStr = GetLabel (inputVector);
-			//Console.WriteLine (indexStr);
-
-			//List<int> index = getListFromString (indexStr);
-			//return index;
 			return getListFromString (indexStr);
 		}
 
@@ -171,9 +165,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			return pos;
 		}
 
-		public static void GetBoundaries(string labels)
+		public static void GetBoundaries(string labels, ref int xmin, ref int ymin, ref int zmin)
 		{
-			string [] split = labels.Split(new char [] {'/'},StringSplitOptions.RemoveEmptyEntries);
+			string[] split = labels.Split (new char [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
 			int L1oct = Convert.ToInt32(split[0],8);
 			int L2oct = Convert.ToInt32(split[1],8);
@@ -199,13 +193,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			int y = Convert.ToInt32 (ybits,2);
 			int z = Convert.ToInt32 (zbits,2);
 
-			int xmin = x * 512; 
-			int ymin = y * 512;
-			int zmin = z * 512;
-
-			int xmax = xmin + 512;
-			int ymax = ymin + 512;
-			int zmax = zmin + 512;
+			xmin = x * 512; 
+			ymin = y * 512;
+			zmin = z * 512;
 
 			return;
 

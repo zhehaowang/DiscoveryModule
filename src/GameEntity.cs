@@ -1,6 +1,7 @@
 ﻿using System;
 
 using net.named_data.jndn;
+using System.Collections.Generic;
 
 namespace remap.NDNMOG.DiscoveryModule
 {
@@ -25,6 +26,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private long previousRespondTime_;
 
+		// Location array stores the location for past MaxSequenceNumber states
 		public Vector3[] locationArray_;
 		private long sequenceNumber_;
 
@@ -95,6 +97,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void setLocation(Vector3 location, bool invokeCallback)
 		{
 			location_ = location;
+
 			if (invokeCallback) {
 				if (setPosCallback_ == null) {
 					Console.WriteLine ("setPosCallback_ for setLocation function is null.");

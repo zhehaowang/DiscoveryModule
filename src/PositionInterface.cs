@@ -271,7 +271,10 @@ namespace remap.NDNMOG.DiscoveryModule
 							if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
 								// The info we received is about an entity who is not being cared about now and was not cared about before
 								// We don't have to do anything about it, except removing it from our list of names to express interest towards
+
+								// Test this part
 								instance_.removeGameEntityByName (entityName);
+								gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 							} else {
 								// This entity has left previous octant
 								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
@@ -281,6 +284,7 @@ namespace remap.NDNMOG.DiscoveryModule
 								prevOct.setDigestComponent ();
 
 								instance_.removeGameEntityByName (entityName);
+								gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 							}
 						} else {
 							// only x_ should be enough for telling if prevLocation does not exist, need to work with the actual boundary of the game though

@@ -68,6 +68,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		// The callback given by Unity to log into specific files
 		private LoggingCallback loggingCallback_;
 
+		// selfOctant is the octant this instance's avatar's belonging to.
+		private List<int> selfOctant_;
+
 		/// <summary>
 		/// Instance class is supposed to be generated from an initial position of the player,
 		/// which is a list of integers; and a string name, which is the name of the player(instance).
@@ -109,6 +112,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			temp1.addName (name);
 			temp.addChild (temp1);
 
+			selfOctant_ = CommonUtility.getOctantIndicesFromVector3(location);
+
 			name_ = name;
 
 			// Instantiate the face_, keyChain_ and certificateName_
@@ -148,7 +153,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <returns>true, if octant with given indices is added; false, if octant with given indices already exists.</returns>
 		/// <param name="index">The octant index list of the octant to be added</param>
-		public bool addOctant(List<int> index)
+		public Octant addOctant(List<int> index)
 		{
 			int i = 0;
 			Octant temp = root_;
@@ -167,9 +172,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (temp1 == null) {
 				temp1 = new Octant (index [i], isLeaf);
 				temp.addChild (temp1);
-				return true;
+				return temp1;
 			} else {
-				return false;
+				return null;
 			}
 		}
 
@@ -594,6 +599,33 @@ namespace remap.NDNMOG.DiscoveryModule
 				// should lock it here
 				selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);
 				selfEntity_.locationArray_ [selfEntity_.getSequenceNumber ()] = selfEntity_.getLocation ();
+
+				List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
+				if (octantList != selfOctant_) {
+					Octant toRemove = getOctantByIndex (selfOctant_);
+					if (toRemove != null) {
+						toRemove.removeName (selfEntity_.getName());
+						toRemove.setDigestComponent ();
+					} else {
+						loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
+					}
+
+					Octant toAdd = getOctantByIndex (octantList);
+					if (toAdd != null) {
+						toAdd.addName (selfEntity_.getName());
+						toAdd.setDigestComponent ();
+					} else {
+						// Don't expect this to happen
+						loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
+						addOctant (octantList);
+
+						toAdd.addName (selfEntity_.getName());
+						toAdd.setDigestComponent ();
+						trackOctant (toAdd);
+					}
+					selfOctant_ = octantList;
+				}
+
 				Thread.Sleep(Constants.PositionIntervalMilliSeconds);
 			}
 		}

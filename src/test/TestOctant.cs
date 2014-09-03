@@ -71,8 +71,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			oct.addName (nameList1[1]);
 
 			// assume that this instance also knows about anotherLoc
-			bool added = instance.addOctant (anotherLoc);
-			Console.WriteLine (added);
+			//bool added = instance.addOctant (anotherLoc);
+			//Console.WriteLine (added);
 
 			// And let's see what the tree looks like after adding anotherLoc and startingLoc
 			// instance.debugTree ();
