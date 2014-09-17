@@ -2,6 +2,8 @@
 using System.Text;
 using System.Collections.Generic;
 
+using System.Threading;
+
 namespace remap.NDNMOG.DiscoveryModule
 {
 	/// <summary>
@@ -12,44 +14,60 @@ namespace remap.NDNMOG.DiscoveryModule
 		private List<string> names_;
 		private UInt32 hash_;
 
+		// To make it compatible with DotNet 2, which Unity uses, we are not using Threadsafe collection featured in 4.0,
+		// instead, we lock name list explicitly.
+		private Mutex nameListLock_;
+
 		public NameDataset()
 		{
 			names_ = new List<string> ();
+			nameListLock_ = new Mutex ();
+		}
+
+		public NameDataset(List<string> names)
+		{
+			names_ = names;
+			nameListLock_ = new Mutex ();
 		}
 
 		public bool removeName(string name)
 		{
+			nameListLock_.WaitOne ();
 			int idx = names_.IndexOf (name);
 			if (idx != -1) {
 				names_.RemoveAt (idx);
+				nameListLock_.ReleaseMutex ();
 				return true;
 			} else {
+				nameListLock_.ReleaseMutex ();
 				return false;
 			}
 		}
 
 		public void appendName(string name)
 		{
+			nameListLock_.WaitOne ();
 			names_.Add (name);
+			nameListLock_.ReleaseMutex ();
 		}
 
 		public void appendNames(NameDataset nameDataset)
 		{
+			nameListLock_.WaitOne ();
 			foreach (string str in nameDataset.getNames())
 			{
 				names_.Add (str);
 			}
+			nameListLock_.ReleaseMutex ();
 			return;
 		}
 
 		public bool containsName(string name)
 		{
-			return names_.Contains (name);
-		}
-
-		public NameDataset(List<string> names)
-		{
-			names_ = names;
+			nameListLock_.WaitOne ();
+			bool value = names_.Contains (name);
+			nameListLock_.ReleaseMutex ();
+			return value;
 		}
 
 		/// <summary>
@@ -57,21 +75,21 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		public void debugList()
 		{
+			nameListLock_.WaitOne ();
 			foreach (string str in names_) {
 				Console.WriteLine (str);
 			}
-			/*
-			Console.WriteLine ("The hash of name dataset: ");
-			Console.WriteLine (hash_);
-			*/
+			nameListLock_.ReleaseMutex ();
 		}
 
 		public string getNamesAsString()
 		{
 			string result = "";
+			nameListLock_.WaitOne ();
 			foreach (string str in names_) {
 				result += (str + " ");
 			}
+			nameListLock_.ReleaseMutex ();
 			return result;
 		}
 
@@ -118,9 +136,13 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void calculateHash()
 		{
 			string xorNames = Constants.XorDebugKey;
+
+			nameListLock_.WaitOne ();
 			foreach (string str in names_) {
 				xorNames = xorStr(xorNames, str);
 			}
+			nameListLock_.ReleaseMutex ();
+
 			//Console.WriteLine (xorNames.Length);
 			hash_ = fnvHash (xorNames, xorNames.Length);
 		}

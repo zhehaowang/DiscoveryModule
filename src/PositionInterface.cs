@@ -148,7 +148,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with catchup right now");
 					// For such situations, receiver should tell sender to send an interest without sequence number
 					// This case is ignored, for now
-					returnContent = "catch up";
+					returnContent = "catch up:" + currentSequence;
 				} else {
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
 					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
@@ -250,12 +250,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			string entityName = NamespaceUtils.getEntityNameFromName (data.getName ());
 			long sequenceNumber = NamespaceUtils.getSequenceFromName (data.getName ());
 
-			// TODO: Remove the dependency on Instance_....or lock
-
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
 			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
-				if (contentStr != "catch up") {
+				if (contentStr.Contains("catch up") == false) {
 					gameEntity.setSequenceNumber (sequenceNumber);
 
 					string[] locationStr = contentStr.Split (',');
@@ -324,8 +322,16 @@ namespace remap.NDNMOG.DiscoveryModule
 						}
 					}
 				} else {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset");
-					gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
+					string []split = contentStr.Split(':');
+					long catchupSequenceNumber = 0;
+
+					if (long.TryParse (split [1], out catchupSequenceNumber)) {
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset to " + catchupSequenceNumber);
+						gameEntity.setSequenceNumber (catchupSequenceNumber);
+					} else {
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a catch up, but sequence number processing failed.");
+						gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
+					}
 				}
 			} else {
 				// Don't expect this to happen
@@ -351,6 +357,14 @@ namespace remap.NDNMOG.DiscoveryModule
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
+
+			// even if it times out, we still set the 'assumed' sequence number for this entity.
+			// TODO: test this logic
+			long sequenceNumber = NamespaceUtils.getSequenceFromName (interest.getName ());
+			if (sequenceNumber != -1) {
+				gameEntity.setSequenceNumber (sequenceNumber);
+			}
+
 			if (gameEntity.incrementTimeOut ()) {
 				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
 				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList

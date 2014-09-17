@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
+using System.Diagnostics;
+
 using net.named_data.jndn;
 using net.named_data.jndn.util;
 using net.named_data.jndn.transport;
@@ -58,7 +60,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		private List<GameEntity> gameEntities_;
 
 		// This list can be modified by onDiscoveryData callback thread, and referenced by position interest expression thread, so we need a mutex lock for it
-		//private Mutex gameEntitiesLock_;
+		private Mutex gameEntitiesLock_;
 
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
@@ -154,7 +156,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			broadcastFace_.setCommandSigningInfo (keyChain_, certificateName_);
 
 			//interestExpressionOctantsLock_ = new Mutex ();
-			//gameEntitiesLock_ = new Mutex ();
+			gameEntitiesLock_ = new Mutex ();
 		}
 
 		/// <summary>
@@ -658,9 +660,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			if (getGameEntityByName (name) == null) {
 				GameEntity gameEntity = new GameEntity (name, EntityType.Player, new Vector3(Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity), setPosCallback_);
-				//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+
+				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.Add (gameEntity);
-				//gameEntitiesLock_.ReleaseMutex ();
+				gameEntitiesLock_.ReleaseMutex ();
 				return true;
 			} else {
 				return false;
@@ -679,9 +682,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (gameEntity == null) {
 				return false;
 			} else {
-				//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.RemoveAt (gameEntities_.IndexOf (gameEntity));
-				//gameEntitiesLock_.ReleaseMutex ();
+				gameEntitiesLock_.ReleaseMutex ();
 				return true;
 			}
 		}
@@ -697,15 +700,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public GameEntity getGameEntityByName(string name)
 		{
-			//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+			gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 			for (int i = 0; i < gameEntities_.Count; i++) {
 				if (gameEntities_ [i].getName () == name) {
-					//gameEntitiesLock_.ReleaseMutex ();
+					gameEntitiesLock_.ReleaseMutex ();
 					return gameEntities_ [i];
 				}
 			}
 			// Make sure lock is released in both cases
-			//gameEntitiesLock_.ReleaseMutex ();
+			gameEntitiesLock_.ReleaseMutex ();
 			return null;
 		}
 
@@ -730,19 +733,30 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			int count = 0;
 			int responseCount = 0;
-			int sleepSeconds = 0; 
+			long sleepSeconds = 0; 
 
+			//long millisecondsBefore = 0;
+			//long millisecondsAfter = 0;
 			// TODO: There is always only one position data interface, which could cause potential problems...
 			// How do I test/verify?
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
+			int interval = 0;
+
+			Stopwatch stopwatch = new Stopwatch ();
+			List<GameEntity> copyGameEntities;
 
 			try
 			{
 				while (true) {
+					//millisecondsBefore = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+					stopwatch.Reset();
+					stopwatch.Start();
+
 					// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-					//gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
-					List<GameEntity> copyGameEntities = new List<GameEntity> (gameEntities_);
-					//gameEntitiesLock_.ReleaseMutex ();
+					gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+					copyGameEntities = new List<GameEntity> (gameEntities_);
+					gameEntitiesLock_.ReleaseMutex ();
+
 					count = copyGameEntities.Count;
 					responseCount = count;
 
@@ -753,7 +767,7 @@ namespace remap.NDNMOG.DiscoveryModule
 							// Position interest name is assumed to be only the Prefix + EntityName for now
 							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
 							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
-								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
+								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + (sleepSeconds / Constants.PositionIntervalMilliSeconds)) % Constants.MaxSequenceNumber));
 								Interest interest = new Interest (interestName);
 
 								interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
@@ -778,19 +792,28 @@ namespace remap.NDNMOG.DiscoveryModule
 						}
 					}
 
+					// do not wait to processEvents, if it's already longer than position interval?
+					// What if RTT is always longer than positionInterval?
+					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
 					while (positionDataInterface.callbackCount_ < responseCount) {
 						positionFace_.processEvents ();
-						System.Threading.Thread.Sleep (10);
-						sleepSeconds += 10;
+						System.Threading.Thread.Sleep (5);
+						//sleepSeconds += 5;
 					}
+
+					//millisecondsAfter = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 
 					positionDataInterface.callbackCount_ = 0;
+					stopwatch.Stop();
+					sleepSeconds = stopwatch.ElapsedMilliseconds;
 
-					int interval = Constants.PositionIntervalMilliSeconds - sleepSeconds;
-					sleepSeconds = 0;
+					interval = Constants.PositionIntervalMilliSeconds - (int)sleepSeconds;
+					// sleepSeconds would be the interval at least.
 					if (interval > 0) {
 						Thread.Sleep (interval);
+						sleepSeconds += interval;
 					}
+
 					// give the peer some time(3s) for it to process the unique names received, 
 					// and confirm with those unique names whether they are in my vicinity or not.
 					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
@@ -798,7 +821,9 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 			catch (Exception e) {
-				loggingCallback_ ("ERROR", DateTime.Now.ToString("h:mm:ss tt") + "\t-\t" + "positionThread: " + e.Message);
+
+				loggingCallback_ ("ERROR", DateTime.Now.ToString("h:mm:ss tt") + "\t-\t" + "positionThread: " + e.Message + "; stack trace: " + e.StackTrace);
+
 			}
 		}
 	}

@@ -17,7 +17,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 		public static void main (string characterName = "default")
 		{
-			Vector3 location = new Vector3 (6750, 3550, 4800);
+			Vector3 location = new Vector3 (6750, 4000, 4800);
 
 			string name = characterName;
 
