@@ -62,11 +62,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
+		// The storage of the info of self entity, which is only used for responding to info interests such as rendering
+		private GameEntityInfo selfEntityInfo_;
 
 		// The callback given by Unity to set position in Unity
 		private SetPosCallback setPosCallback_;
 		// The callback given by Unity to log into specific files
 		private LoggingCallback loggingCallback_;
+		// The callback given by Unity to set info of entity such as rendering info
+		private InfoCallback infoCallback_;
 
 		// selfOctant is the octant this instance's avatar's belonging to.
 		private List<int> selfOctant_;
@@ -78,11 +82,17 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, Face face = null, KeyChain keyChain = null, Name certificateName = null)
+		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
+			if (renderString == "") {
+				renderString = Constants.DefaultRenderString;
+			}
+			selfEntityInfo_ = new GameEntityInfo (name, renderString);
+
 			setPosCallback_ = setPosCallback;
 			loggingCallback_ = loggingCallback;
+			infoCallback_ = infoCallback;
 
 			gameEntities_ = new List<GameEntity> ();
 
@@ -136,10 +146,9 @@ namespace remap.NDNMOG.DiscoveryModule
 			// Allow prefix registration for nfd
 			positionFace_.setCommandSigningInfo (keyChain_, certificateName_);
 
-			Name positionPrefix = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + name);
+			Name localPrefix = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(name);
 			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
-			positionFace_.registerPrefix (positionPrefix, positionInterestInterface, positionInterestInterface);
-
+			positionFace_.registerPrefix (localPrefix, positionInterestInterface, positionInterestInterface);
 
 			broadcastFace_ = new Face ("localhost");
 			broadcastFace_.setCommandSigningInfo (keyChain_, certificateName_);
@@ -280,7 +289,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			digestStr = digestStr.Replace ('/', '_');
 			string indexStr = oct.getListIndexAsString();
 
-			Name name = new Name (prefix + indexStr + digestStr);
+			Name name = new Name (prefix + indexStr).append(digestStr);
 			Interest interest = new Interest (name);
 
 			return interest;
@@ -630,6 +639,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
+		public GameEntityInfo getSelfGameEntityInfo()
+		{
+			return selfEntityInfo_;
+		}
+
 		public GameEntity getSelfGameEntity()
 		{
 			return selfEntity_;
@@ -695,6 +709,19 @@ namespace remap.NDNMOG.DiscoveryModule
 			return null;
 		}
 
+		public void renderExpressInterest(string entityName)
+		{
+			InfoDataInterface infoDataInterface = new InfoDataInterface(this, infoCallback_, loggingCallback_);
+			Name renderName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(entityName).append(Constants.InfoPrefix).append(Constants.RenderInfoPrefix);
+
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRender interest expressed " + renderName.toUri());
+
+			Interest renderInterest = new Interest (renderName);
+			positionFace_.expressInterest (renderInterest, infoDataInterface, infoDataInterface);
+
+			return;
+		}
+
 		/// <summary>
 		/// Express position interest with positionFace_ towards given name
 		/// </summary>
@@ -724,7 +751,7 @@ namespace remap.NDNMOG.DiscoveryModule
 						// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
 						if (copyGameEntities [i] != null) {
 							// Position interest name is assumed to be only the Prefix + EntityName for now
-							Name interestName = new Name (Constants.AlephPrefix + Constants.PlayersPrefix + copyGameEntities [i].getName () + Constants.PositionPrefix);
+							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
 							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
 								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
 								Interest interest = new Interest (interestName);

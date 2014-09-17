@@ -126,7 +126,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		public List<Octant> parseDigest(Interest interest)
 		{
 			string interestNameStr = interest.getName().toUri ();
-			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnInterest : Received " + interestNameStr);
 			string[] nameComponentStr = interestNameStr.Split ('/');
 
 			string lastComponent = nameComponentStr [nameComponentStr.Length - 1];
@@ -219,6 +218,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
 			++callbackCount_;
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery OnInterest : Received " + interest.getName().toUri());
 			List<Octant> octants = parseDigest (interest);
 			if (octants.Count != 0) {
 				Data data = constructData (interest, octants);

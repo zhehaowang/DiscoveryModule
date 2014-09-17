@@ -9,12 +9,39 @@ namespace remap.NDNMOG.DiscoveryModule
 	/// Callback for a set location prototype function, which should be implemented in Unity
 	/// </summary>
 	public delegate bool SetPosCallback(string name, Vector3 location);
+	public delegate bool InfoCallback(string name, string info);
 
 	public enum EntityType
 	{
 		Player,
 		NPC
 	};
+
+	/// <summary>
+	/// GameEntityInfo stores the information that's only used for replying to info interests,
+	/// such as render string.
+	/// </summary>
+	public class GameEntityInfo
+	{
+		private string name_;
+		private string renderString_;
+
+		public GameEntityInfo(string name, string renderString)
+		{
+			name_ = name;
+			renderString_ = renderString;
+		}
+
+		public string getRenderString()
+		{
+			return renderString_;
+		}
+
+		public string getName()
+		{
+			return name_;
+		}
+	}
 
 	public class GameEntity
 	{

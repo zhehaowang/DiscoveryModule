@@ -79,7 +79,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				indexString = oct.getIndex () + "/" + indexString;
 				oct = oct.parent ();
 			}
-			return indexString;
+			return ("/" + indexString);
 		}
 
 		public Octant leftChild()

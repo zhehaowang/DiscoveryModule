@@ -69,7 +69,48 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
-		// To publish content to memory content cache would be ideal.
+		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+		{
+			++callbackCount_;
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: " + interest.toUri());
+
+			if (NamespaceUtils.getCmdFromName(interest.getName()) == Constants.PositionPrefix)
+			{
+				onPositionInterest(prefix, interest, transport, registeredPrefixId);
+			}
+			else if (NamespaceUtils.getCmdFromName(interest.getName()) == Constants.InfoPrefix)
+			{
+				onInfoInterest(prefix, interest, transport, registeredPrefixId);
+			}
+		}
+
+		public void onInfoInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+		{
+			Name lengthName = new Name (Constants.AlephPrefix);
+			// the thing that comes directly after hubPrefix should be "players" + entityName + "info/position"
+			string cmdName = interest.getName().get (lengthName.size() + 3).toEscapedString ();
+			// processing render info interest
+			if (cmdName == Constants.RenderInfoPrefix) {
+				Data data = new Data (interest.getName());
+
+				data.setContent (new Blob (Encoding.UTF8.GetBytes(instance_.getSelfGameEntityInfo().getRenderString())));
+				data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
+
+				try {
+					keyChain_.sign (data, certificateName_);
+				} catch (SecurityException exception) {
+					loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
+				}
+
+				Blob encodedData = data.wireEncode ();
+				try {
+					transport.send (encodedData.buf ());
+				} catch (Exception ex) {
+					loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
+				}
+			}
+			return;
+		}
 
 		/// <summary>
 		/// Send position of self back to the interest's issuer, with freshness defined in constants class.
@@ -78,10 +119,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="interest">Interest.</param>
 		/// <param name="transport">Transport.</param>
 		/// <param name="registeredPrefixId">Registered prefix identifier.</param>
-		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+		public void onPositionInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			++callbackCount_;
-			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: " + interest.toUri());
 
 			//Vector3 location = instance_.getSelfGameEntity ().getLocation ();
 
@@ -98,7 +137,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				data.getName ().append (Name.Component.fromNumber(sequenceNumber));
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
 			} else {
-				long sequenceNumber = PositionDataInterface.getSequenceFromName(interest.getName());
+				long sequenceNumber = NamespaceUtils.getSequenceFromName(interest.getName());
 
 				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
@@ -172,36 +211,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		/// <summary>
-		/// Get the entityName from getName().toUri(), entity name locator (position from the end of an interest name) is defined in constants
-		/// </summary>
-		/// <returns>The entity name from URI.</returns>
-		/// <param name="name">Name.</param>
-		public static string getEntityNameFromName(Name name)
-		{
-			Name lengthName = new Name (Constants.AlephPrefix);
-			// the thing that comes directly after hubPrefix should be players + entityName
-			string entityName = name.get (lengthName.size() + 1).toEscapedString ();
-			return entityName;
-		}
-
-		/// <summary>
-		/// Gets the sequence number from name.
-		/// </summary>
-		/// <returns>The sequence from name.</returns>
-		public static long getSequenceFromName(Name name)
-		{
-			Name lengthName = new Name (Constants.AlephPrefix);
-
-			// hubPrefix + players + entityName + position + seq
-			if (lengthName.size () + 4 == name.size ()) {
-				long sequenceNumber = name.get (-1).toNumber ();
-				return sequenceNumber;
-			} else {
-				return -1;
-			}
-		}
-
-		/// <summary>
 		/// Judge sequence tells if the latter sequence should be accepted as the new sequence number.
 		/// </summary>
 		/// <returns><c>true</c>, if seq1 is smaller than seq2, and seq2 should be taken as the new sequence, <c>false</c> otherwise.</returns>
@@ -231,17 +240,15 @@ namespace remap.NDNMOG.DiscoveryModule
 			callbackCount_++;
 
 			ByteBuffer content = data.getContent ().buf ();
-
 			byte[] contentBytes = new byte[content.remaining()];
 			content.get (contentBytes);
-
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			loggingCallback_ 
 			("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
 
-			string entityName = getEntityNameFromName (data.getName ());
-			long sequenceNumber = getSequenceFromName (data.getName ());
+			string entityName = NamespaceUtils.getEntityNameFromName (data.getName ());
+			long sequenceNumber = NamespaceUtils.getSequenceFromName (data.getName ());
 
 			// TODO: Remove the dependency on Instance_....or lock
 
@@ -294,6 +301,11 @@ namespace remap.NDNMOG.DiscoveryModule
 
 								oct.addName (entityName);
 								oct.setDigestComponent ();
+
+								// express interest for rendering info
+								if (Constants.FetchAdditionalInfoOnDiscovery) {
+									instance_.renderExpressInterest (entityName);
+								}
 							} else {
 								// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
 								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
@@ -336,7 +348,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			callbackCount_++;
 
 			loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
-			string entityName = getEntityNameFromName (interest.getName ());
+			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 			if (gameEntity.incrementTimeOut ()) {
@@ -363,6 +375,43 @@ namespace remap.NDNMOG.DiscoveryModule
 		private LoggingCallback loggingCallback_;
 		public int callbackCount_ = 0;
 		//private Mutex onDataLock_;
+	}
+
+	public class InfoDataInterface : OnData, OnTimeout
+	{
+		public InfoDataInterface (Instance instance, InfoCallback infoCallback, LoggingCallback loggingCallback)
+		{
+			instance_ = instance;
+			infoCallback_ = infoCallback;
+			loggingCallback_ = loggingCallback;
+		}
+
+		public void onData(Interest interest, Data data)
+		{
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRender data received, name: " + interest.getName().toUri());
+
+			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName());
+
+			ByteBuffer content = data.getContent ().buf ();
+			byte[] contentBytes = new byte[content.remaining()];
+			content.get (contentBytes);
+			string contentStr = Encoding.UTF8.GetString (contentBytes);
+
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRendering: " + entityName + " " + contentStr);
+			if (infoCallback_ != null) {
+				infoCallback_ (entityName, contentStr);
+			}
+		}
+
+		public void onTimeout(Interest interest)
+		{
+			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName());
+			instance_.renderExpressInterest (entityName);
+		}
+
+		private Instance instance_;
+		private InfoCallback infoCallback_;
+		private LoggingCallback loggingCallback_;
 	}
 }
 
