@@ -143,7 +143,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 			nameListLock_.ReleaseMutex ();
 
-			//Console.WriteLine (xorNames.Length);
 			hash_ = fnvHash (xorNames, xorNames.Length);
 		}
 

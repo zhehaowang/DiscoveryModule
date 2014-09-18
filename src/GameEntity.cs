@@ -55,7 +55,12 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// Location array stores the location for past MaxSequenceNumber states
 		public Vector3[] locationArray_;
-		private long sequenceNumber_;
+
+		private long querySequenceNumber_;
+		private long renderSequenceNumber_;
+		// whenever expectedSequenceNumber is not default value, incrementSequenceNumber resets the sequenceNumber to its value;
+		// expectedSequenceNumber is used for catching up/resetting.
+		private long expectedSequenceNumber_;
 
 		private SetPosCallback setPosCallback_;
 
@@ -68,12 +73,14 @@ namespace remap.NDNMOG.DiscoveryModule
 			setPosCallback_ = setPosCallback;
 			previousRespondTime_ = 0;
 
-			sequenceNumber_ = Constants.DefaultSequenceNumber;
+			querySequenceNumber_ = Constants.DefaultSequenceNumber;
+			renderSequenceNumber_ = Constants.DefaultSequenceNumber;
+			expectedSequenceNumber_ = Constants.DefaultSequenceNumber;
+
 			locationArray_ = new Vector3[Constants.MaxSequenceNumber];
 			for (int i = 0; i < Constants.MaxSequenceNumber; i++) {
 				locationArray_ [i] = new Vector3 (0, 0, 0);
 			}
-
 		}
 
 		public GameEntity (string name, EntityType entityType)
@@ -145,14 +152,48 @@ namespace remap.NDNMOG.DiscoveryModule
 			return entityType_;
 		}
 
-		public long getSequenceNumber()
+		public long getQuerySequenceNumber()
 		{
-			return sequenceNumber_;
+			return querySequenceNumber_;
 		}
 
-		public void setSequenceNumber(long sequenceNumber)
+		public long getRenderSequenceNumber()
 		{
-			sequenceNumber_ = sequenceNumber;
+			return renderSequenceNumber_;
+		}
+
+		public void incrementQuerySequenceNumber()
+		{
+			if (expectedSequenceNumber_ != Constants.DefaultSequenceNumber) {
+				querySequenceNumber_ = expectedSequenceNumber_;
+				expectedSequenceNumber_ = Constants.DefaultSequenceNumber;
+			} else {
+				if (querySequenceNumber_ != Constants.DefaultSequenceNumber)
+				{
+					querySequenceNumber_ = (querySequenceNumber_ + 1) % Constants.MaxSequenceNumber;
+				}
+			}
+			return;
+		}
+
+		/// <summary>
+		/// Sets the sequence number. This method is only used by selfEntity, whose starting sequence number is 0 instead of -1.
+		/// </summary>
+		/// <param name="sequenceNumber">Sequence number.</param>
+		public void setQuerySequenceNumber(long sequenceNumber)
+		{
+			querySequenceNumber_ = sequenceNumber;
+			return;
+		}
+
+		public void setExpectedSequenceNumber(long expectedSequenceNumber)
+		{
+			expectedSequenceNumber_ = expectedSequenceNumber;
+		}
+
+		public void setRenderSequenceNumber(long sequenceNumber)
+		{
+			renderSequenceNumber_ = sequenceNumber;
 			return;
 		}
 

@@ -44,6 +44,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Thread tInterestExpression_;
 		// The thread that handles posititon interest expression
 		private Thread tPositionInterestExpression_;
+
 		// The thread that publishes the location of the local game entity.
 		private Thread publisherThread_;
 
@@ -61,6 +62,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// This list can be modified by onDiscoveryData callback thread, and referenced by position interest expression thread, so we need a mutex lock for it
 		private Mutex gameEntitiesLock_;
+		// The lock for positionFace, since processEvents is drawn out of positionInterestExpression thread
+		private Mutex positionFaceLock_;
 
 		// The storage of self(game entity)
 		private GameEntity selfEntity_;
@@ -157,6 +160,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			//interestExpressionOctantsLock_ = new Mutex ();
 			gameEntitiesLock_ = new Mutex ();
+			positionFaceLock_ = new Mutex ();
 		}
 
 		/// <summary>
@@ -488,7 +492,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			int sleepSeconds = 0; 
 			int count = 0;
 
-			int responseCount = 0;
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this, loggingCallback_);
 
@@ -500,14 +503,9 @@ namespace remap.NDNMOG.DiscoveryModule
 					// TODO: Check if there's moments main event loop will not be running or fail to get out?
 
 					// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-					//interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 					List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
-					//interestExpressionOctantsLock_.ReleaseMutex();
-
-					//loggingCallback_ ("INFO", "working");
 
 					count = copyOctantsList.Count;
-					responseCount = count;
 
 					for (i = 0; i<count; i++)
 					{
@@ -527,30 +525,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery ExpressInterest: " + interest.toUri ());
 						} else {
-							responseCount--;
 						}
 					}
 
-					while (dataHandle.callbackCount_ < responseCount) {
+					while (sleepSeconds < Constants.BroadcastIntervalMilliSeconds) {
 						broadcastFace_.processEvents ();
 						System.Threading.Thread.Sleep (10);
 						sleepSeconds += 10;
 					}
-					dataHandle.callbackCount_ = 0;
-
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
 					sleepSeconds = 0;
-					if (interval > 0) {
-						Thread.Sleep (interval);
-					}
-
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					//Thread.Sleep (Constants.BroadcastIntervalMilliSeconds);
 				}
 			}
 			catch (Exception e) {
@@ -567,17 +550,17 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (tInterestExpression_.IsAlive) {
 				tInterestExpression_.Abort ();
 			} else {
-				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:discovery expression thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:discovery expression thread is not alive");
 			}
 			if (tPositionInterestExpression_.IsAlive) {
 				tPositionInterestExpression_.Abort ();
 			} else {
-				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:position interest thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:position interest thread is not alive");
 			}
 			if (publisherThread_.IsAlive) {
 				publisherThread_.Abort ();
 			} else {
-				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
 			}
 			//face_.stopProcessing ();
 		}
@@ -606,10 +589,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		// should use this method to publish to memory content cache
 		public void publishLocation()
 		{
+			selfEntity_.setQuerySequenceNumber (0);
 			while (true) {
 				// should lock it here
-				selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);
-				selfEntity_.locationArray_ [selfEntity_.getSequenceNumber ()] = selfEntity_.getLocation ();
+				selfEntity_.incrementQuerySequenceNumber();
+				selfEntity_.locationArray_ [selfEntity_.getQuerySequenceNumber ()] = selfEntity_.getLocation ();
 
 				List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
 				if (octantList != selfOctant_) {
@@ -732,7 +716,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
-			int responseCount = 0;
 			long sleepSeconds = 0; 
 
 			//long millisecondsBefore = 0;
@@ -740,25 +723,26 @@ namespace remap.NDNMOG.DiscoveryModule
 			// TODO: There is always only one position data interface, which could cause potential problems...
 			// How do I test/verify?
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
-			int interval = 0;
 
-			Stopwatch stopwatch = new Stopwatch ();
+			Stopwatch stopwatch = new Stopwatch();
 			List<GameEntity> copyGameEntities;
 
 			try
 			{
 				while (true) {
-					//millisecondsBefore = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 					stopwatch.Reset();
 					stopwatch.Start();
 
 					// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
 					gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+					// always issue interest for the next sequence number for other entities
+					foreach (GameEntity geIterator in gameEntities_){
+						geIterator.incrementQuerySequenceNumber();
+					}
 					copyGameEntities = new List<GameEntity> (gameEntities_);
 					gameEntitiesLock_.ReleaseMutex ();
 
 					count = copyGameEntities.Count;
-					responseCount = count;
 
 					// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
 					for (int i = 0; i < count; i++) {
@@ -766,8 +750,8 @@ namespace remap.NDNMOG.DiscoveryModule
 						if (copyGameEntities [i] != null) {
 							// Position interest name is assumed to be only the Prefix + EntityName for now
 							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
-							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
-								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + (sleepSeconds / Constants.PositionIntervalMilliSeconds)) % Constants.MaxSequenceNumber));
+							if (copyGameEntities [i].getQuerySequenceNumber () != Constants.DefaultSequenceNumber) {
+								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getQuerySequenceNumber ())));
 								Interest interest = new Interest (interestName);
 
 								interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
@@ -788,37 +772,22 @@ namespace remap.NDNMOG.DiscoveryModule
 								loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 							}
 						} else {
-							responseCount--;
+
 						}
 					}
 
+					stopwatch.Stop();
+					sleepSeconds = stopwatch.ElapsedMilliseconds;
 					// do not wait to processEvents, if it's already longer than position interval?
 					// What if RTT is always longer than positionInterval?
 					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
 					// so the problem now, is that whenever there's a player drop or a timeout, the rate of update slows down significantly.
-					while (positionDataInterface.callbackCount_ < responseCount) {
+					while (sleepSeconds < Constants.PositionIntervalMilliSeconds) {
 						positionFace_.processEvents ();
 						System.Threading.Thread.Sleep (5);
-						//sleepSeconds += 5;
+						sleepSeconds += 5;
 					}
-
-					//millisecondsAfter = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
-					positionDataInterface.callbackCount_ = 0;
-					stopwatch.Stop();
-					sleepSeconds = stopwatch.ElapsedMilliseconds;
-
-					interval = Constants.PositionIntervalMilliSeconds - (int)sleepSeconds;
-					// sleepSeconds would be the interval at least.
-					if (interval > 0) {
-						Thread.Sleep (interval);
-						sleepSeconds += interval;
-					}
-
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					//Thread.Sleep (Constants.PositionIntervalMilliSeconds);
+					sleepSeconds = 0;
 				}
 			}
 			catch (Exception e) {

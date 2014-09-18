@@ -132,13 +132,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			// should print the latency between generating and actually receiving interest and answering
 			if (interest.getName ().size () == (newName.size () + 3)) {
-				long sequenceNumber = instance_.getSelfGameEntity ().getSequenceNumber ();
+				long sequenceNumber = instance_.getSelfGameEntity ().getQuerySequenceNumber ();
 				data.getName ().append (Name.Component.fromNumber(sequenceNumber));
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
 			} else {
 				long sequenceNumber = NamespaceUtils.getSequenceFromName(interest.getName());
 
-				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
+				long currentSequence = instance_.getSelfGameEntity ().getQuerySequenceNumber ();
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with reset.");
 
@@ -239,8 +239,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="data">Data.</param>
 		public void onData (Interest interest, Data data)
 		{
-			callbackCount_++;
-
 			ByteBuffer content = data.getContent ().buf ();
 			byte[] contentBytes = new byte[content.remaining()];
 			content.get (contentBytes);
@@ -254,9 +252,13 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
-			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
+			if (gameEntity != null && judgeSequence(gameEntity.getRenderSequenceNumber(), sequenceNumber)) {
 				if (contentStr.Contains("reset") == false) {
-					gameEntity.setSequenceNumber (sequenceNumber);
+					if (gameEntity.getQuerySequenceNumber() == Constants.DefaultSequenceNumber)
+					{
+						gameEntity.setExpectedSequenceNumber (sequenceNumber);
+					}
+					gameEntity.setRenderSequenceNumber (sequenceNumber);
 
 					string[] locationStr = contentStr.Split (',');
 					Vector3 location = new Vector3 (locationStr);
@@ -329,10 +331,12 @@ namespace remap.NDNMOG.DiscoveryModule
 					// TODO: whenever "reset" is received, local instance update the sequence number, which could cause thrashing if local's too fast?
 					if (long.TryParse (split [1], out catchupSequenceNumber)) {
 						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a reset, sequence reset to " + catchupSequenceNumber);
-						gameEntity.setSequenceNumber (catchupSequenceNumber);
+						gameEntity.setExpectedSequenceNumber (catchupSequenceNumber);
+						gameEntity.setRenderSequenceNumber (Constants.DefaultSequenceNumber);
 					} else {
 						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a reset, but sequence number processing failed.");
-						gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
+						gameEntity.setExpectedSequenceNumber (Constants.DefaultSequenceNumber);
+						gameEntity.setRenderSequenceNumber (Constants.DefaultSequenceNumber);
 					}
 				}
 			} else {
@@ -340,7 +344,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				if (gameEntity == null) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") does not have a gameEntity stored locally");
 				} else {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: Sequence rejected. Local: " + gameEntity.getSequenceNumber() + "; Received: " + sequenceNumber);
+					loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: Sequence rejected. Local: " + gameEntity.getRenderSequenceNumber() + "; Received: " + sequenceNumber);
 				}
 			}
 		}
@@ -355,42 +359,36 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			callbackCount_++;
 
-			loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
+			loggingCallback_ ("WARNING",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
-			// even if it times out, we still set the 'assumed' sequence number for this entity.
-			// TODO: test this logic
-			long sequenceNumber = NamespaceUtils.getSequenceFromName (interest.getName ());
-			if (sequenceNumber != -1) {
-				gameEntity.setSequenceNumber (sequenceNumber);
-			}
+			if (gameEntity != null) {
+				if (gameEntity.incrementTimeOut ()) {
+					loggingCallback_ ("INFO", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
+					// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
+					Vector3 prevLocation = gameEntity.getLocation ();
+					if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+						// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
+						instance_.removeGameEntityByName (entityName);
+					} else {
+						// a previously known entity has dropped, so we remove it from the octant it belongs to, and the list we express position interest towards
+						List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+						Octant prevOct = instance_.getOctantByIndex (prevIndices);
+						prevOct.removeName (entityName);
 
-			if (gameEntity.incrementTimeOut ()) {
-				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
-				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
-				Vector3 prevLocation = gameEntity.getLocation ();
-				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
-					// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
-					instance_.removeGameEntityByName (entityName);
-				} else {
-					// a previously known entity has dropped, so we remove it from the octant it belongs to, and the list we express position interest towards
-					List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
-					Octant prevOct = instance_.getOctantByIndex (prevIndices);
-					prevOct.removeName (entityName);
-
-					prevOct.setDigestComponent ();
-					instance_.removeGameEntityByName (entityName);
+						prevOct.setDigestComponent ();
+						instance_.removeGameEntityByName (entityName);
+					}
+					gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 				}
-				gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 			}
 		}
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
 		public int callbackCount_ = 0;
-		//private Mutex onDataLock_;
 	}
 
 	public class InfoDataInterface : OnData, OnTimeout
