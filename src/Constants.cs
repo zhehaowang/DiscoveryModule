@@ -53,6 +53,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int PositionTimeoutMilliSeconds = 800;
 		// Interval for position update if it brought back position data
 		public const int PositionIntervalMilliSeconds = 40;
+		// In the position interest expression interval, only processInterval amount of time can be used for processEvents, so that we don't get accumulated delay
+		public const int PositionProcessMilliSeconds = 25;
 
 		// Freshness period for broadcast digest data
 		public const int DigestDataFreshnessSeconds = 10;

@@ -589,9 +589,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		// should use this method to publish to memory content cache
 		public void publishLocation()
 		{
+			// querySequenceNumber is used for local entity;
 			selfEntity_.setQuerySequenceNumber (0);
 			while (true) {
-				// should lock it here
 				selfEntity_.incrementQuerySequenceNumber();
 				selfEntity_.locationArray_ [selfEntity_.getQuerySequenceNumber ()] = selfEntity_.getLocation ();
 
@@ -716,7 +716,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
-			long sleepSeconds = 0; 
+
+			int sleepSeconds = 0; 
+			int lastRound = Constants.PositionIntervalMilliSeconds;
 
 			//long millisecondsBefore = 0;
 			//long millisecondsAfter = 0;
@@ -771,21 +773,28 @@ namespace remap.NDNMOG.DiscoveryModule
 								positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);	
 								loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 							}
-						} else {
-
 						}
 					}
 
-					stopwatch.Stop();
-					sleepSeconds = stopwatch.ElapsedMilliseconds;
-					// do not wait to processEvents, if it's already longer than position interval?
-					// What if RTT is always longer than positionInterval?
-					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
-					// so the problem now, is that whenever there's a player drop or a timeout, the rate of update slows down significantly.
-					while (sleepSeconds < Constants.PositionIntervalMilliSeconds) {
+					while (sleepSeconds < Constants.PositionProcessMilliSeconds) {
 						positionFace_.processEvents ();
-						System.Threading.Thread.Sleep (5);
-						sleepSeconds += 5;
+						System.Threading.Thread.Sleep (1);
+						sleepSeconds += 1;
+					}
+
+					stopwatch.Stop();
+					sleepSeconds = lastRound - (int)stopwatch.ElapsedMilliseconds;
+					//Console.WriteLine("*** " + sleepSeconds);
+
+					if (sleepSeconds >= 0) {
+						System.Threading.Thread.Sleep(sleepSeconds);
+						lastRound = Constants.PositionIntervalMilliSeconds;
+					}
+					else {
+						lastRound += sleepSeconds;
+						if (lastRound < Constants.PositionProcessMilliSeconds) {
+							lastRound = Constants.PositionIntervalMilliSeconds;
+						}
 					}
 					sleepSeconds = 0;
 				}
