@@ -84,7 +84,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
+		  (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			if (renderString == "") {
@@ -795,6 +795,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					// do not wait to processEvents, if it's already longer than position interval?
 					// What if RTT is always longer than positionInterval?
 					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
+					// so the problem now, is that whenever there's a player drop or a timeout, the rate of update slows down significantly.
 					while (positionDataInterface.callbackCount_ < responseCount) {
 						positionFace_.processEvents ();
 						System.Threading.Thread.Sleep (5);

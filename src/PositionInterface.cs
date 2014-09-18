@@ -129,7 +129,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			Data data = new Data (interest.getName());
 
 			Name newName = new Name (Constants.AlephPrefix);
-			Console.WriteLine (interest.getName ().size () + " " + (newName.size () + 3));
 
 			// should print the latency between generating and actually receiving interest and answering
 			if (interest.getName ().size () == (newName.size () + 3)) {
@@ -141,14 +140,16 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with most recent data");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with reset.");
 
-					returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
+					// replying with most recent when ahead may be worse than replying with reset
+					//returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
+					returnContent = "reset:" + currentSequence + ":ahead";
 				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with catchup right now");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with reset.");
 					// For such situations, receiver should tell sender to send an interest without sequence number
 					// This case is ignored, for now
-					returnContent = "catch up:" + currentSequence;
+					returnContent = "reset:" + currentSequence + ":behind";
 				} else {
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
 					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
@@ -216,11 +217,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns><c>true</c>, if seq1 is smaller than seq2, and seq2 should be taken as the new sequence, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Seq1.</param>
 		/// <param name="seq2">Seq2.</param>
-		public Boolean judgeSequence(long seq1, long seq2)
+		public bool judgeSequence(long seq1, long seq2)
 		{
 			if (seq1 < seq2 || seq1 == Constants.MaxSequenceNumber - 1 || seq1 == Constants.DefaultSequenceNumber) {
 				return true;
 			} else {
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData judgeSequence: received: " + seq2 + " sequence not taken; current " + seq1);
 				return false;
 			}
 		}
@@ -245,7 +247,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			loggingCallback_ 
-			("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
+			  ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
 
 			string entityName = NamespaceUtils.getEntityNameFromName (data.getName ());
 			long sequenceNumber = NamespaceUtils.getSequenceFromName (data.getName ());
@@ -253,7 +255,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
 			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
-				if (contentStr.Contains("catch up") == false) {
+				if (contentStr.Contains("reset") == false) {
 					gameEntity.setSequenceNumber (sequenceNumber);
 
 					string[] locationStr = contentStr.Split (',');
@@ -264,7 +266,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 					gameEntity.resetTimeOut ();
 
-					// TODO: Test following logic
 					// Cross thread reference without mutex is still a problem here.
 					List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
 
@@ -325,11 +326,12 @@ namespace remap.NDNMOG.DiscoveryModule
 					string []split = contentStr.Split(':');
 					long catchupSequenceNumber = 0;
 
+					// TODO: whenever "reset" is received, local instance update the sequence number, which could cause thrashing if local's too fast?
 					if (long.TryParse (split [1], out catchupSequenceNumber)) {
-						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset to " + catchupSequenceNumber);
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a reset, sequence reset to " + catchupSequenceNumber);
 						gameEntity.setSequenceNumber (catchupSequenceNumber);
 					} else {
-						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a catch up, but sequence number processing failed.");
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a reset, but sequence number processing failed.");
 						gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
 					}
 				}

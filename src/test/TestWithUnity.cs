@@ -11,7 +11,11 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 		public static bool loggingCallback(string info, string data)
 		{
-			Console.WriteLine (info + " " + data);
+			// Does not log INFO for this test
+			if (info != "INFO")
+			{
+				Console.WriteLine (info + " " + data);
+			}
 			return true;
 		}
 

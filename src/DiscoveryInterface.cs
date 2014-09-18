@@ -227,7 +227,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				try {
 					transport.send (encodedData.buf ());
 				} catch (Exception ex) {
-					Console.WriteLine ("Echo: IOException in sending data " + ex.Message);
+					loggingCallback_ ("ERROR", "IOException in sending data " + ex.Message + " " + ex.StackTrace);
 				}
 			}
 		}
