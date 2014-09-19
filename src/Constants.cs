@@ -55,7 +55,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const int PositionIntervalMilliSeconds = 40;
 
 		// Freshness period for broadcast digest data
-		public const int DigestDataFreshnessSeconds = 10;
+		public const int DigestDataFreshnessSeconds = 5;
 		// Freshness period for each position update. According to the spec, any freshness period less than a second is not supported
 		public const int PosititonDataFreshnessSeconds = 1;
 

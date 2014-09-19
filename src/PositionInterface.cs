@@ -71,7 +71,6 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			++callbackCount_;
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: " + interest.toUri());
 
 			if (NamespaceUtils.getCmdFromName(interest.getName()) == Constants.PositionPrefix)
@@ -205,7 +204,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="prefix">The failed prefix.</param>
 		public void onRegisterFailed (Name prefix)
 		{
-			++callbackCount_;
 			loggingCallback_ ("ERROR", "Position: Register failed for prefix " + prefix.toUri ());
 		}
 
@@ -213,8 +211,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		Name certificateName_;
 		Instance instance_;
 		LoggingCallback loggingCallback_;
-
-		public int callbackCount_ = 0;
 	}
 
 	/// <summary>
@@ -377,8 +373,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="interest">Interest.</param>
 		public void onTimeout (Interest interest)
 		{
-			callbackCount_++;
-
 			loggingCallback_ ("WARNING",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
@@ -408,7 +402,6 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
-		public int callbackCount_ = 0;
 	}
 
 	public class InfoDataInterface : OnData, OnTimeout
