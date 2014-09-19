@@ -11,7 +11,6 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 		public static bool loggingCallback(string info, string data)
 		{
-			// Does not log INFO for this test
 			if (logVerbose_ || info != "INFO")
 			{
 				Console.WriteLine (info + " " + data);
@@ -19,6 +18,10 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			return true;
 		}
 
+		// Known problems in three-party test: 
+		// 1. One instance dropped out in the other two, the other two instances are still in its game, but their positions are updated: 
+		// presumably position interest expression thread has already crashed in Unity.
+		// 2. Color string did not get rendered for one of the instances for the same run.
 		public static void main (string characterName = "default", bool verbose = false)
 		{
 			Vector3 location = new Vector3 (6750, 4000, 4800);

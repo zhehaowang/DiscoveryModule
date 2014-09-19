@@ -147,8 +147,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					System.Threading.Timer timer = new System.Threading.Timer (new TimerCallback(timerCallback), new CallbackParam(prefix, interest, transport, registeredPrefixId), (sequenceNumber - currentSequence) * Constants.PositionIntervalMilliSeconds, Timeout.Infinite);
 				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with reset.");
-					// For such situations, receiver should tell sender to send an interest without sequence number
-					// This case is ignored, for now
 					returnContent = "reset:" + currentSequence + ":behind";
 				} else {
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
@@ -229,8 +227,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			instance_ = instance;
 			loggingCallback_ = loggingCallback;
-
-			//onDataLock_ = new Mutex ();
 		}
 
 		/// <summary>
