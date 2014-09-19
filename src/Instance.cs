@@ -745,6 +745,8 @@ namespace remap.NDNMOG.DiscoveryModule
 					if (copyGameEntities_ [i].getQuerySequenceNumber () != Constants.DefaultSequenceNumber) {
 						interestName.append (Name.Component.fromNumber ((copyGameEntities_ [i].getQuerySequenceNumber ())));
 						interest = new Interest (interestName);
+
+						// setAnswerOriginKind(0) does not stop content stores from trying to answer...
 					} else {
 						interest = new Interest (interestName);
 
@@ -755,9 +757,9 @@ namespace remap.NDNMOG.DiscoveryModule
 					interest.setMustBeFresh (true);
 					interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
 
-					positionFaceLock_.WaitOne();
+					positionFaceLock_.WaitOne ();
 					positionFace_.expressInterest (interest, positionDataInterface_, positionDataInterface_);
-					positionFaceLock_.ReleaseMutex();
+					positionFaceLock_.ReleaseMutex ();
 
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 				}

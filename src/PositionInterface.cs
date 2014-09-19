@@ -140,7 +140,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				long currentSequence = instance_.getSelfGameEntity ().getQuerySequenceNumber ();
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with reset.");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), wait and reply.");
 
 					// when the requested data is not yet generated, fire this onInterest again after a delay
 					// we don't have the data yet, don't return anything
