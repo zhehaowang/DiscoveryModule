@@ -11,6 +11,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 		public static bool loggingCallback(string info, string data)
 		{
+			// Does not log INFO for this test
 			if (logVerbose_ || info != "INFO")
 			{
 				Console.WriteLine (info + " " + data);

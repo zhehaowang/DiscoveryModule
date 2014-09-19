@@ -45,7 +45,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Current sequence number of local instance.</param>
 		/// <param name="seq2">Received sequence number in interest.</param>
-		public static Boolean isSenderFallingBehind(long seq1, long seq2)
+		public static bool isSenderFallingBehind(long seq1, long seq2)
 		{
 			if (seq1 - seq2 > Constants.MaxSequenceThreshold || (seq1 < seq2 && seq1 > Constants.MaxSequenceThreshold)) {
 				return true;
@@ -123,7 +123,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 
 			//Vector3 location = instance_.getSelfGameEntity ().getLocation ();
-
+			bool canReturn = true;
 			string returnContent = "";
 
 			Data data = new Data (interest.getName());
@@ -142,9 +142,10 @@ namespace remap.NDNMOG.DiscoveryModule
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with reset.");
 
-					// replying with most recent when ahead may be worse than replying with reset
-					//returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
-					returnContent = "reset:" + currentSequence + ":ahead";
+					// when the requested data is not yet generated, fire this onInterest again after a delay
+					// we don't have the data yet, don't return anything
+					canReturn = false;
+					System.Threading.Timer timer = new System.Threading.Timer (new TimerCallback(timerCallback), new CallbackParam(prefix, interest, transport, registeredPrefixId), (sequenceNumber - currentSequence) * Constants.PositionIntervalMilliSeconds, Timeout.Infinite);
 				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with reset.");
 					// For such situations, receiver should tell sender to send an interest without sequence number
@@ -156,21 +157,46 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 
-			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
-			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
+			if (canReturn) {
+				data.setContent (new Blob (Encoding.UTF8.GetBytes (returnContent)));
+				data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
 
-			try {
-				keyChain_.sign (data, certificateName_);
-			} catch (SecurityException exception) {
-				loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
-			}
+				try {
+					keyChain_.sign (data, certificateName_);
+				} catch (SecurityException exception) {
+					loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
+				}
 
-			Blob encodedData = data.wireEncode ();
-			try {
-				transport.send (encodedData.buf ());
-			} catch (Exception ex) {
-				loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
+				Blob encodedData = data.wireEncode ();
+				try {
+					transport.send (encodedData.buf ());
+				} catch (Exception ex) {
+					loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
+				}
 			}
+		}
+
+		class CallbackParam
+		{
+			public Transport transport_;
+			public Interest interest_;
+			public Name prefix_;
+			public long registeredPrefixId_;
+
+			public CallbackParam(Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+			{
+				prefix_ = prefix;
+				transport_ = transport;
+				interest_ = interest;
+				registeredPrefixId_ = registeredPrefixId;
+			}
+		}
+
+		public void timerCallback(object param)
+		{
+			CallbackParam callbackParam = (CallbackParam)param;
+			loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: timer refiring.");
+			onPositionInterest (callbackParam.prefix_, callbackParam.interest_, callbackParam.transport_, callbackParam.registeredPrefixId_);
 		}
 
 		/// <summary>
@@ -241,6 +267,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			ByteBuffer content = data.getContent ().buf ();
 			byte[] contentBytes = new byte[content.remaining()];
+				// And content.get gives me array index out of range...interesting.
 			content.get (contentBytes);
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 

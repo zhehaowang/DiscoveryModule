@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
-using System.Diagnostics;
+using System.Timers;
 
 using net.named_data.jndn;
 using net.named_data.jndn.util;
@@ -42,18 +42,22 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// The thread that handles broadcast interest expression
 		private Thread tInterestExpression_;
-		// The thread that handles posititon interest expression
-		private Thread tPositionInterestExpression_;
+		// The timer for periodic express position interest
+		private System.Timers.Timer tPositionExpressInterest_;
+		private GameEntity[] copyGameEntities_;
+		private int gameEntitiesCount_;
+		private PositionDataInterface positionDataInterface_;
+		// The thread that handles posititon process events
+		private Thread tPositionProcessEvents_;
 
 		// The thread that publishes the location of the local game entity.
-		private Thread publisherThread_;
+		private System.Timers.Timer publisherTimer_;
 
 		// Keychain for face localhost and default certificate name, instantiated along with instance class
 		private KeyChain keyChain_;
 		private Name certificateName_;
 
 		// Face for broadcast discovery interest
-		// Always using default face_ localhost
 		private Face positionFace_;
 		private Face broadcastFace_;
 
@@ -161,6 +165,8 @@ namespace remap.NDNMOG.DiscoveryModule
 			//interestExpressionOctantsLock_ = new Mutex ();
 			gameEntitiesLock_ = new Mutex ();
 			positionFaceLock_ = new Mutex ();
+
+			positionDataInterface_ = new PositionDataInterface (this, loggingCallback_);
 		}
 
 		/// <summary>
@@ -550,17 +556,22 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (tInterestExpression_.IsAlive) {
 				tInterestExpression_.Abort ();
 			} else {
-				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:discovery expression thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery: discovery expression thread is not alive");
 			}
-			if (tPositionInterestExpression_.IsAlive) {
-				tPositionInterestExpression_.Abort ();
+			if (tPositionExpressInterest_.Enabled) {
+				tPositionExpressInterest_.Stop();
 			} else {
-				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:position interest thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery: position interest timer stopped");
 			}
-			if (publisherThread_.IsAlive) {
-				publisherThread_.Abort ();
+			if (publisherTimer_.Enabled) {
+				publisherTimer_.Stop ();
 			} else {
-				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery: self position update thread is not alive");
+			}
+			if (tPositionProcessEvents_.IsAlive) {
+				tPositionProcessEvents_.Abort ();
+			} else {
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery: position processEvents thread is not alive");
 			}
 			//face_.stopProcessing ();
 		}
@@ -575,11 +586,19 @@ namespace remap.NDNMOG.DiscoveryModule
 				tInterestExpression_ = new Thread(this.discoveryExpressInterest);
 				tInterestExpression_.Start();
 
-				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
-				tPositionInterestExpression_.Start();
+				tPositionExpressInterest_ = new System.Timers.Timer();
+				tPositionExpressInterest_.Elapsed += new ElapsedEventHandler(expressPositionInterest);
+				tPositionExpressInterest_.Interval = Constants.PositionIntervalMilliSeconds;
+				tPositionExpressInterest_.Start();
 
-				publisherThread_ = new Thread(this.publishLocation);
-				publisherThread_.Start();
+				publisherTimer_ = new System.Timers.Timer();
+				selfEntity_.setQuerySequenceNumber (0);
+				publisherTimer_.Elapsed += new ElapsedEventHandler(publishLocation);
+				publisherTimer_.Interval = Constants.PositionIntervalMilliSeconds;
+				publisherTimer_.Start();
+
+				tPositionProcessEvents_ = new Thread(this.positionProcessEvents);
+				tPositionProcessEvents_.Start();
 
 			} catch (Exception e) {
 				loggingCallback_ ("ERROR", "Discovery Exception: " + e.Message + "\nStack trace: " + e.StackTrace);
@@ -587,41 +606,36 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		// should use this method to publish to memory content cache
-		public void publishLocation()
+		public void publishLocation(object source, ElapsedEventArgs eArgs)
 		{
 			// querySequenceNumber is used for local entity;
-			selfEntity_.setQuerySequenceNumber (0);
-			while (true) {
-				selfEntity_.incrementQuerySequenceNumber();
-				selfEntity_.locationArray_ [selfEntity_.getQuerySequenceNumber ()] = selfEntity_.getLocation ();
+			selfEntity_.incrementQuerySequenceNumber();
+			selfEntity_.locationArray_ [selfEntity_.getQuerySequenceNumber ()] = selfEntity_.getLocation ();
 
-				List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
-				if (octantList != selfOctant_) {
-					Octant toRemove = getOctantByIndex (selfOctant_);
-					if (toRemove != null) {
-						toRemove.removeName (selfEntity_.getName());
-						toRemove.setDigestComponent ();
-					} else {
-						loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
-					}
-
-					Octant toAdd = getOctantByIndex (octantList);
-					if (toAdd != null) {
-						toAdd.addName (selfEntity_.getName());
-						toAdd.setDigestComponent ();
-					} else {
-						// Don't expect this to happen
-						loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
-						addOctant (octantList);
-
-						toAdd.addName (selfEntity_.getName());
-						toAdd.setDigestComponent ();
-						trackOctant (toAdd);
-					}
-					selfOctant_ = octantList;
+			List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
+			if (octantList != selfOctant_) {
+				Octant toRemove = getOctantByIndex (selfOctant_);
+				if (toRemove != null) {
+					toRemove.removeName (selfEntity_.getName());
+					toRemove.setDigestComponent ();
+				} else {
+					loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
 				}
 
-				Thread.Sleep(Constants.PositionIntervalMilliSeconds);
+				Octant toAdd = getOctantByIndex (octantList);
+				if (toAdd != null) {
+					toAdd.addName (selfEntity_.getName());
+					toAdd.setDigestComponent ();
+				} else {
+					// Don't expect this to happen
+					loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
+					addOctant (octantList);
+
+					toAdd.addName (selfEntity_.getName());
+					toAdd.setDigestComponent ();
+					trackOctant (toAdd);
+				}
+				selfOctant_ = octantList;
 			}
 		}
 
@@ -709,100 +723,54 @@ namespace remap.NDNMOG.DiscoveryModule
 			return;
 		}
 
-		/// <summary>
-		/// Express position interest with positionFace_ towards given name
-		/// </summary>
-		/// <param name="name">Name.</param>
-		public void positionExpressInterest()
+		public void expressPositionInterest(object source, ElapsedEventArgs eArgs)
 		{
-			int count = 0;
+			// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
+			gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
+			// always issue interest for the next sequence number for other entities
+			foreach (GameEntity geIterator in gameEntities_){
+				geIterator.incrementQuerySequenceNumber();
+			}
+			copyGameEntities_ = gameEntities_.ToArray ();
+			gameEntitiesCount_ = copyGameEntities_.Length;
+			gameEntitiesLock_.ReleaseMutex ();
 
-			int sleepSeconds = 0; 
-			int lastRound = Constants.PositionIntervalMilliSeconds;
+			Interest interest = new Interest();
+			// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
+			for (int i = 0; i < gameEntitiesCount_; i++) {
+				// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
+				if (copyGameEntities_ [i] != null) {
+					// Position interest name is assumed to be only the Prefix + EntityName for now
+					Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities_ [i].getName ()).append(Constants.PositionPrefix);
+					if (copyGameEntities_ [i].getQuerySequenceNumber () != Constants.DefaultSequenceNumber) {
+						interestName.append (Name.Component.fromNumber ((copyGameEntities_ [i].getQuerySequenceNumber ())));
+						interest = new Interest (interestName);
+					} else {
+						interest = new Interest (interestName);
 
-			//long millisecondsBefore = 0;
-			//long millisecondsAfter = 0;
-			// TODO: There is always only one position data interface, which could cause potential problems...
-			// How do I test/verify?
-			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
-
-			Stopwatch stopwatch = new Stopwatch();
-			List<GameEntity> copyGameEntities;
-
-			try
-			{
-				while (true) {
-					stopwatch.Reset();
-					stopwatch.Start();
-
-					// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
-					gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
-					// always issue interest for the next sequence number for other entities
-					foreach (GameEntity geIterator in gameEntities_){
-						geIterator.incrementQuerySequenceNumber();
+						// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
+						interest.setChildSelector (1);
+						interest.setAnswerOriginKind (0);
 					}
-					copyGameEntities = new List<GameEntity> (gameEntities_);
-					gameEntitiesLock_.ReleaseMutex ();
+					interest.setMustBeFresh (true);
+					interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
 
-					count = copyGameEntities.Count;
+					positionFaceLock_.WaitOne();
+					positionFace_.expressInterest (interest, positionDataInterface_, positionDataInterface_);
+					positionFaceLock_.ReleaseMutex();
 
-					// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
-					for (int i = 0; i < count; i++) {
-						// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
-						if (copyGameEntities [i] != null) {
-							// Position interest name is assumed to be only the Prefix + EntityName for now
-							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
-							if (copyGameEntities [i].getQuerySequenceNumber () != Constants.DefaultSequenceNumber) {
-								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getQuerySequenceNumber ())));
-								Interest interest = new Interest (interestName);
-
-								interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
-								interest.setMustBeFresh (true);
-
-								positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);
-								loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
-							} else {
-								Interest interest = new Interest (interestName);
-
-								interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
-								interest.setMustBeFresh (true);
-								// with fetching mode, fetching the rightmost child, if it's the first interest for the game entity, should be ok.
-								interest.setChildSelector (1);
-								interest.setAnswerOriginKind (0);
-
-								positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);	
-								loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
-							}
-						}
-					}
-
-					while (sleepSeconds < Constants.PositionProcessMilliSeconds) {
-						positionFace_.processEvents ();
-						System.Threading.Thread.Sleep (1);
-						sleepSeconds += 1;
-					}
-
-					stopwatch.Stop();
-					sleepSeconds = lastRound - (int)stopwatch.ElapsedMilliseconds;
-					//Console.WriteLine("*** " + sleepSeconds);
-
-					if (sleepSeconds >= 0) {
-						System.Threading.Thread.Sleep(sleepSeconds);
-						lastRound = Constants.PositionIntervalMilliSeconds;
-					}
-					else {
-						lastRound += sleepSeconds;
-						if (lastRound < Constants.PositionProcessMilliSeconds) {
-							lastRound = Constants.PositionIntervalMilliSeconds;
-						}
-					}
-					sleepSeconds = 0;
+					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 				}
 			}
-			catch (Exception e) {
+		}
 
-				loggingCallback_ ("ERROR", DateTime.Now.ToString("h:mm:ss tt") + "\t-\t" + "positionThread: " + e.Message + "; stack trace: " + e.StackTrace);
-
+		public void positionProcessEvents()
+		{
+			while (true) {
+				positionFaceLock_.WaitOne ();
+				positionFace_.processEvents ();
+				positionFaceLock_.ReleaseMutex ();
+				Thread.Sleep (5);
 			}
 		}
 	}
