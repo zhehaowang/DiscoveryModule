@@ -126,9 +126,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			location_ = location;
 
 			if (invokeCallback) {
-				if (setPosCallback_ == null) {
-					Console.WriteLine ("setPosCallback_ for setLocation function is null.");
-				} else {
+				if (setPosCallback_ != null) {
 					setPosCallback_ (name_, location_);
 				}
 			}

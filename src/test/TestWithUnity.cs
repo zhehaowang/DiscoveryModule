@@ -11,15 +11,20 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 		public static bool loggingCallback(string info, string data)
 		{
-			Console.WriteLine (info + " " + data);
+			// Does not log INFO for this test
+			if (logVerbose_ || info != "INFO")
+			{
+				Console.WriteLine (info + " " + data);
+			}
 			return true;
 		}
 
-		public static void main (string characterName = "default")
+		public static void main (string characterName = "default", bool verbose = false)
 		{
 			Vector3 location = new Vector3 (6750, 4000, 4800);
 
 			string name = characterName;
+			logVerbose_ = verbose;
 
 			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null, loggingCallback); 
 
@@ -34,6 +39,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			}
 			//InterestInterface.parseDigest (interest1);
 		}
+
+		private static bool logVerbose_;
 	}
 }
-

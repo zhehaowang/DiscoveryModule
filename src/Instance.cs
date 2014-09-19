@@ -732,15 +732,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void positionExpressInterest()
 		{
 			int count = 0;
-			int responseCount = 0;
-			long sleepSeconds = 0; 
 
-			//long millisecondsBefore = 0;
-			//long millisecondsAfter = 0;
-			// TODO: There is always only one position data interface, which could cause potential problems...
-			// How do I test/verify?
 			PositionDataInterface positionDataInterface = new PositionDataInterface (this, loggingCallback_);
-			int interval = 0;
 
 			Stopwatch stopwatch = new Stopwatch ();
 			List<GameEntity> copyGameEntities;
@@ -758,7 +751,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					gameEntitiesLock_.ReleaseMutex ();
 
 					count = copyGameEntities.Count;
-					responseCount = count;
 
 					// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
 					for (int i = 0; i < count; i++) {
@@ -767,7 +759,7 @@ namespace remap.NDNMOG.DiscoveryModule
 							// Position interest name is assumed to be only the Prefix + EntityName for now
 							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
 							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
-								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + (sleepSeconds / Constants.PositionIntervalMilliSeconds)) % Constants.MaxSequenceNumber));
+								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
 								Interest interest = new Interest (interestName);
 
 								interest.setInterestLifetimeMilliseconds (Constants.PositionTimeoutMilliSeconds);
@@ -787,37 +779,18 @@ namespace remap.NDNMOG.DiscoveryModule
 								positionFace_.expressInterest (interest, positionDataInterface, positionDataInterface);	
 								loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition ExpressInterest: " + interest.toUri ());
 							}
-						} else {
-							responseCount--;
 						}
 					}
 
 					// do not wait to processEvents, if it's already longer than position interval?
 					// What if RTT is always longer than positionInterval?
 					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
-					while (positionDataInterface.callbackCount_ < responseCount) {
+					while (stopwatch.ElapsedMilliseconds < Constants.PositionIntervalMilliSeconds) {
 						positionFace_.processEvents ();
-						System.Threading.Thread.Sleep (5);
-						//sleepSeconds += 5;
+						System.Threading.Thread.Sleep (1);
 					}
 
-					//millisecondsAfter = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
-					positionDataInterface.callbackCount_ = 0;
 					stopwatch.Stop();
-					sleepSeconds = stopwatch.ElapsedMilliseconds;
-
-					interval = Constants.PositionIntervalMilliSeconds - (int)sleepSeconds;
-					// sleepSeconds would be the interval at least.
-					if (interval > 0) {
-						Thread.Sleep (interval);
-						sleepSeconds += interval;
-					}
-
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					//Thread.Sleep (Constants.PositionIntervalMilliSeconds);
 				}
 			}
 			catch (Exception e) {

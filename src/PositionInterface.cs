@@ -45,7 +45,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Current sequence number of local instance.</param>
 		/// <param name="seq2">Received sequence number in interest.</param>
-		public static Boolean isSenderFallingBehind(long seq1, long seq2)
+		public static bool isSenderFallingBehind(long seq1, long seq2)
 		{
 			if (seq1 - seq2 > Constants.MaxSequenceThreshold || (seq1 < seq2 && seq1 > Constants.MaxSequenceThreshold)) {
 				return true;
@@ -60,7 +60,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns><c>true</c>, if the received sequence is within a reasonable range, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Current sequence number of local instance.</param>
 		/// <param name="seq2">Received sequence number in interest.</param>
-		public static Boolean isSenderAhead(long seq1, long seq2)
+		public static bool isSenderAhead(long seq1, long seq2)
 		{
 			if (seq2 > seq1 && seq2 - seq1 < Constants.MinSequenceThreshold || (seq1 > (Constants.MaxSequenceNumber - Constants.MinSequenceThreshold) && seq2 < Constants.MinSequenceThreshold)) {
 				return true;
@@ -123,13 +123,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 
 			//Vector3 location = instance_.getSelfGameEntity ().getLocation ();
-
+			bool canReturn = true;
 			string returnContent = "";
 
 			Data data = new Data (interest.getName());
 
 			Name newName = new Name (Constants.AlephPrefix);
-			Console.WriteLine (interest.getName ().size () + " " + (newName.size () + 3));
 
 			// should print the latency between generating and actually receiving interest and answering
 			if (interest.getName ().size () == (newName.size () + 3)) {
@@ -141,35 +140,63 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				long currentSequence = instance_.getSelfGameEntity ().getSequenceNumber ();
 				if (isSenderAhead (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), replying with most recent data");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") is ahead of current(" + currentSequence + "), wait and reply.");
 
-					returnContent = instance_.getSelfGameEntity ().locationArray_ [currentSequence].ToString ();
+					// when the requested data is not yet generated, fire this onInterest again after a delay
+					// we don't have the data yet, don't return anything
+					canReturn = false;
+					System.Threading.Timer timer = new System.Threading.Timer (new TimerCallback(timerCallback), new CallbackParam(prefix, interest, transport, registeredPrefixId), (sequenceNumber - currentSequence) * Constants.PositionIntervalMilliSeconds, Timeout.Infinite);
 				} else if (isSenderFallingBehind (currentSequence, sequenceNumber)) {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with catchup right now");
+					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: Requested sequence(" + sequenceNumber + ") has fallen behind current(" + currentSequence + "), replying with reset.");
 					// For such situations, receiver should tell sender to send an interest without sequence number
 					// This case is ignored, for now
-					returnContent = "catch up:" + currentSequence;
+					returnContent = "reset:" + currentSequence + ":behind";
 				} else {
 					loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnInterest: Replying to sequence: " + sequenceNumber + "; Current sequence: " + currentSequence);
 					returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString ();
 				}
 			}
 
-			data.setContent (new Blob (Encoding.UTF8.GetBytes(returnContent)));
-			data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
+			if (canReturn) {
+				data.setContent (new Blob (Encoding.UTF8.GetBytes (returnContent)));
+				data.getMetaInfo ().setFreshnessSeconds (Constants.PosititonDataFreshnessSeconds);
 
-			try {
-				keyChain_.sign (data, certificateName_);
-			} catch (SecurityException exception) {
-				loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
-			}
+				try {
+					keyChain_.sign (data, certificateName_);
+				} catch (SecurityException exception) {
+					loggingCallback_ ("ERROR", "Position OnInterest: SecurityException in sign: " + exception.Message);
+				}
 
-			Blob encodedData = data.wireEncode ();
-			try {
-				transport.send (encodedData.buf ());
-			} catch (Exception ex) {
-				loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
+				Blob encodedData = data.wireEncode ();
+				try {
+					transport.send (encodedData.buf ());
+				} catch (Exception ex) {
+					loggingCallback_ ("ERROR", "Position OnInterest: Exception in sending data " + ex.Message);
+				}
 			}
+		}
+
+		class CallbackParam
+		{
+			public Transport transport_;
+			public Interest interest_;
+			public Name prefix_;
+			public long registeredPrefixId_;
+
+			public CallbackParam(Name prefix, Interest interest, Transport transport, long registeredPrefixId)
+			{
+				prefix_ = prefix;
+				transport_ = transport;
+				interest_ = interest;
+				registeredPrefixId_ = registeredPrefixId;
+			}
+		}
+
+		public void timerCallback(object param)
+		{
+			CallbackParam callbackParam = (CallbackParam)param;
+			loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnInterest: timer refiring.");
+			onPositionInterest (callbackParam.prefix_, callbackParam.interest_, callbackParam.transport_, callbackParam.registeredPrefixId_);
 		}
 
 		/// <summary>
@@ -216,11 +243,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <returns><c>true</c>, if seq1 is smaller than seq2, and seq2 should be taken as the new sequence, <c>false</c> otherwise.</returns>
 		/// <param name="seq1">Seq1.</param>
 		/// <param name="seq2">Seq2.</param>
-		public Boolean judgeSequence(long seq1, long seq2)
+		public bool judgeSequence(long seq1, long seq2)
 		{
 			if (seq1 < seq2 || seq1 == Constants.MaxSequenceNumber - 1 || seq1 == Constants.DefaultSequenceNumber) {
 				return true;
 			} else {
+				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData judgeSequence: received: " + seq2 + " sequence not taken; current " + seq1);
 				return false;
 			}
 		}
@@ -237,15 +265,14 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="data">Data.</param>
 		public void onData (Interest interest, Data data)
 		{
-			callbackCount_++;
-
 			ByteBuffer content = data.getContent ().buf ();
 			byte[] contentBytes = new byte[content.remaining()];
+			// And content.get gives me array index out of range...interesting.
 			content.get (contentBytes);
 			string contentStr = Encoding.UTF8.GetString (contentBytes);
 
 			loggingCallback_ 
-			("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
+			  ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
 
 			string entityName = NamespaceUtils.getEntityNameFromName (data.getName ());
 			long sequenceNumber = NamespaceUtils.getSequenceFromName (data.getName ());
@@ -253,7 +280,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
 			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
-				if (contentStr.Contains("catch up") == false) {
+				if (contentStr.Contains("reset") == false) {
 					gameEntity.setSequenceNumber (sequenceNumber);
 
 					string[] locationStr = contentStr.Split (',');
@@ -264,7 +291,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					gameEntity.setLocation (location, Constants.InvokeSetPosCallback);
 					gameEntity.resetTimeOut ();
 
-					// TODO: Test following logic
 					// Cross thread reference without mutex is still a problem here.
 					List<int> octantIndices = CommonUtility.getOctantIndicesFromVector3 (location);
 
@@ -326,10 +352,10 @@ namespace remap.NDNMOG.DiscoveryModule
 					long catchupSequenceNumber = 0;
 
 					if (long.TryParse (split [1], out catchupSequenceNumber)) {
-						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a catch up, sequence reset to " + catchupSequenceNumber);
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") asks for a reset, sequence reset to " + catchupSequenceNumber);
 						gameEntity.setSequenceNumber (catchupSequenceNumber);
 					} else {
-						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a catch up, but sequence number processing failed.");
+						loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (\" + entityName + \") asks for a reset, but sequence number processing failed.");
 						gameEntity.setSequenceNumber (Constants.DefaultSequenceNumber);
 					}
 				}
@@ -353,42 +379,36 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			callbackCount_++;
 
-			loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
+			loggingCallback_ ("WARNING",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
 			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
 
-			// even if it times out, we still set the 'assumed' sequence number for this entity.
-			// TODO: test this logic
-			long sequenceNumber = NamespaceUtils.getSequenceFromName (interest.getName ());
-			if (sequenceNumber != -1) {
-				gameEntity.setSequenceNumber (sequenceNumber);
-			}
+			if (gameEntity != null) {
+				if (gameEntity.incrementTimeOut ()) {
+					loggingCallback_ ("INFO", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
+					// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
+					Vector3 prevLocation = gameEntity.getLocation ();
+					if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
+						// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
+						instance_.removeGameEntityByName (entityName);
+					} else {
+						// a previously known entity has dropped, so we remove it from the octant it belongs to, and the list we express position interest towards
+						List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
+						Octant prevOct = instance_.getOctantByIndex (prevIndices);
+						prevOct.removeName (entityName);
 
-			if (gameEntity.incrementTimeOut ()) {
-				loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: " + entityName + " could have dropped.");
-				// For those could have dropped, remove them from the rendered objects of Unity (if it is rendered), and remove them from the gameEntitiesList
-				Vector3 prevLocation = gameEntity.getLocation ();
-				if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
-					// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
-					instance_.removeGameEntityByName (entityName);
-				} else {
-					// a previously known entity has dropped, so we remove it from the octant it belongs to, and the list we express position interest towards
-					List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
-					Octant prevOct = instance_.getOctantByIndex (prevIndices);
-					prevOct.removeName (entityName);
-
-					prevOct.setDigestComponent ();
-					instance_.removeGameEntityByName (entityName);
+						prevOct.setDigestComponent ();
+						instance_.removeGameEntityByName (entityName);
+					}
+					gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 				}
-				gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 			}
 		}
 
 		private Instance instance_;
 		private LoggingCallback loggingCallback_;
 		public int callbackCount_ = 0;
-		//private Mutex onDataLock_;
 	}
 
 	public class InfoDataInterface : OnData, OnTimeout
@@ -426,6 +446,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		private Instance instance_;
 		private InfoCallback infoCallback_;
 		private LoggingCallback loggingCallback_;
+
 	}
 }
-
