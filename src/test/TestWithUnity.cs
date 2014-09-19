@@ -22,14 +22,17 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 		// 1. One instance dropped out in the other two, the other two instances are still in its game, but their positions are updated: 
 		// presumably position interest expression thread has already crashed in Unity.
 		// 2. Color string did not get rendered for one of the instances for the same run.
-		public static void main (string characterName = "default", bool verbose = false)
+		public static void main (string characterName = "default", bool verbose = false, string hubPrefix = "")
 		{
 			Vector3 location = new Vector3 (6750, 4000, 4800);
 
 			string name = characterName;
 			logVerbose_ = verbose;
 
-			Instance instance = new Instance(CommonUtility.getOctantIndicesFromVector3(location), name, location, null, loggingCallback); 
+			Instance instance = new Instance
+				(CommonUtility.getOctantIndicesFromVector3(location), 
+					name, location, null, loggingCallback, null, 
+					null, null, null, "yellow", hubPrefix); 
 
 			instance.discovery ();
 

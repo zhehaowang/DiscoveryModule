@@ -30,10 +30,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			nameListLock_ = new Mutex ();
 		}
 
-		public bool removeName(string name)
+		public bool removeName(string prefix, string name)
 		{
 			nameListLock_.WaitOne ();
-			int idx = names_.IndexOf (name);
+			int idx = names_.IndexOf (prefix + ":" + name);
 			if (idx != -1) {
 				names_.RemoveAt (idx);
 				nameListLock_.ReleaseMutex ();
@@ -44,10 +44,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			}
 		}
 
-		public void appendName(string name)
+		public void appendName(string prefix, string name)
 		{
 			nameListLock_.WaitOne ();
-			names_.Add (name);
+			names_.Add (prefix + ":" + name);
 			nameListLock_.ReleaseMutex ();
 		}
 
@@ -62,10 +62,10 @@ namespace remap.NDNMOG.DiscoveryModule
 			return;
 		}
 
-		public bool containsName(string name)
+		public bool containsName(string prefix, string name)
 		{
 			nameListLock_.WaitOne ();
-			bool value = names_.Contains (name);
+			bool value = names_.Contains (prefix + ":" + name);
 			nameListLock_.ReleaseMutex ();
 			return value;
 		}

@@ -46,6 +46,8 @@ namespace remap.NDNMOG.DiscoveryModule
 	public class GameEntity
 	{
 		private string name_;
+		private string hubPrefix_;
+
 		private Vector3 location_;
 
 		private EntityType entityType_;
@@ -59,7 +61,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		private SetPosCallback setPosCallback_;
 
-		public void initialize(string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
+		public void initialize(string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback, string hubPrefix)
 		{
 			name_ = name;
 			entityType_ = entityType;
@@ -74,26 +76,27 @@ namespace remap.NDNMOG.DiscoveryModule
 				locationArray_ [i] = new Vector3 (0, 0, 0);
 			}
 
+			hubPrefix_ = hubPrefix;
 		}
 
 		public GameEntity (string name, EntityType entityType)
 		{
-			initialize (name, entityType, new Vector3(0, 0, 0), null);
+			initialize (name, entityType, new Vector3(0, 0, 0), null, Constants.DefaultHubPrefix);
 		}
 
 		public GameEntity (string name, EntityType entityType, Vector3 location)
 		{
-			initialize (name, entityType, location, null);
+			initialize (name, entityType, location, null, Constants.DefaultHubPrefix);
 		}
 
 		public GameEntity (string name, EntityType entityType, float x, float y, float z)
 		{
-			initialize (name, entityType, new Vector3(x, y, z), null);
+			initialize (name, entityType, new Vector3(x, y, z), null, Constants.DefaultHubPrefix);
 		}
 
-		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback)
+		public GameEntity (string name, EntityType entityType, Vector3 location, SetPosCallback setPosCallback, string hubPrefix)
 		{
-			initialize (name, entityType, location, setPosCallback);
+			initialize (name, entityType, location, setPosCallback, hubPrefix);
 		}
 
 		public string getName()
@@ -114,6 +117,16 @@ namespace remap.NDNMOG.DiscoveryModule
 		public long getPreviousRespondTime()
 		{
 			return previousRespondTime_;
+		}
+
+		public void setHubPrefix(string hubPrefix)
+		{
+			hubPrefix_ = hubPrefix;
+		}
+
+		public string getHubPrefix()
+		{
+			return hubPrefix_;
 		}
 
 		/// <summary>

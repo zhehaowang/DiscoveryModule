@@ -52,6 +52,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		private KeyChain keyChain_;
 		private Name certificateName_;
 
+		// The prefix of the hub
+		private string hubPrefix_;
+
 		// Face for broadcast discovery interest
 		// Always using default face_ localhost
 		private Face positionFace_;
@@ -85,13 +88,22 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		  (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
+		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "", string hubPrefix = "")
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			if (renderString == "") {
 				renderString = Constants.DefaultRenderString;
 			}
 			selfEntityInfo_ = new GameEntityInfo (name, renderString);
+
+			if (hubPrefix == "") {
+				hubPrefix_ = Constants.DefaultHubPrefix;
+			} else {
+				hubPrefix_ = hubPrefix;
+				hubPrefix_ = hubPrefix_.TrimStart ('/');
+				hubPrefix_ = hubPrefix_.TrimEnd ('/');
+			}
+			selfEntity_.setHubPrefix (hubPrefix_);
 
 			setPosCallback_ = setPosCallback;
 			loggingCallback_ = loggingCallback;
@@ -122,13 +134,12 @@ namespace remap.NDNMOG.DiscoveryModule
 				temp = insert;
 			}
 			Octant temp1 = new Octant(index[i], true);
-			temp1.addName (name);
+			temp1.addName (hubPrefix_, name);
 			temp.addChild (temp1);
 
 			selfOctant_ = CommonUtility.getOctantIndicesFromVector3(location);
 
 			// Instantiate the face_, keyChain_ and certificateName_
-
 			positionFace_ = new Face ("localhost");
 
 			MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
@@ -147,7 +158,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			// Allow prefix registration for nfd
 			positionFace_.setCommandSigningInfo (keyChain_, certificateName_);
 
-			Name localPrefix = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(name);
+			Name localPrefix = new Name (hubPrefix_).append(Constants.PlayersPrefix).append(name);
 			PositionInterestInterface positionInterestInterface = new PositionInterestInterface (keyChain_, certificateName_, this, loggingCallback_);
 			positionFace_.registerPrefix (localPrefix, positionInterestInterface, positionInterestInterface);
 
@@ -591,7 +602,7 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (octantList != selfOctant_) {
 				Octant toRemove = getOctantByIndex (selfOctant_);
 				if (toRemove != null) {
-					toRemove.removeName (selfEntity_.getName());
+					toRemove.removeName (hubPrefix_, selfEntity_.getName());
 					toRemove.setDigestComponent ();
 				} else {
 					loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
@@ -599,14 +610,14 @@ namespace remap.NDNMOG.DiscoveryModule
 
 				Octant toAdd = getOctantByIndex (octantList);
 				if (toAdd != null) {
-					toAdd.addName (selfEntity_.getName());
+					toAdd.addName (hubPrefix_, selfEntity_.getName());
 					toAdd.setDigestComponent ();
 				} else {
 					// Don't expect this to happen
 					loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
 					addOctant (octantList);
 
-					toAdd.addName (selfEntity_.getName());
+					toAdd.addName (hubPrefix_, selfEntity_.getName());
 					toAdd.setDigestComponent ();
 					trackOctant (toAdd);
 				}
@@ -629,10 +640,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <returns><c>true</c>, if game entity by name does not exist before, and was added; <c>false</c> otherwise.</returns>
 		/// <param name="name">Name.</param>
-		public bool addGameEntityByName(string name)
+		public bool addGameEntityByName(string prefix, string name)
 		{
-			if (getGameEntityByName (name) == null) {
-				GameEntity gameEntity = new GameEntity (name, EntityType.Player, new Vector3(Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity), setPosCallback_);
+			if (getGameEntityByName (prefix, name) == null) {
+				GameEntity gameEntity = new GameEntity (name, EntityType.Player, new Vector3(Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity, Constants.DefaultLocationNewEntity), setPosCallback_, prefix);
 
 				gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 				gameEntities_.Add (gameEntity);
@@ -648,9 +659,9 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <returns><c>true</c>, if game entity does exist and was removed, <c>false</c> otherwise.</returns>
 		/// <param name="name">Name.</param>
-		public bool removeGameEntityByName(string name)
+		public bool removeGameEntityByName(string prefix, string name)
 		{
-			GameEntity gameEntity = getGameEntityByName (name);
+			GameEntity gameEntity = getGameEntityByName (prefix, name);
 			if (gameEntity == null) {
 				return false;
 			} else {
@@ -670,11 +681,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			return gameEntities_;
 		}
 
-		public GameEntity getGameEntityByName(string name)
+		public GameEntity getGameEntityByName(string prefix, string name)
 		{
 			gameEntitiesLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 			for (int i = 0; i < gameEntities_.Count; i++) {
-				if (gameEntities_ [i].getName () == name) {
+				if (gameEntities_ [i].getName () == name && gameEntities_[i].getHubPrefix() == prefix ) {
 					gameEntitiesLock_.ReleaseMutex ();
 					return gameEntities_ [i];
 				}
@@ -683,16 +694,16 @@ namespace remap.NDNMOG.DiscoveryModule
 			return null;
 		}
 
-		public void renderExpressInterest(string entityName)
+		public void renderExpressInterest(string hubPrefix, string entityName)
 		{
 			InfoDataInterface infoDataInterface = new InfoDataInterface(this, infoCallback_, loggingCallback_);
-			Name renderName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(entityName).append(Constants.InfoPrefix).append(Constants.RenderInfoPrefix);
-
-			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRender interest expressed " + renderName.toUri());
+			Name renderName = new Name (hubPrefix).append(Constants.PlayersPrefix).append(entityName).append(Constants.InfoPrefix).append(Constants.RenderInfoPrefix);
 
 			Interest renderInterest = new Interest (renderName);
+			// Using broadcast timeout milliseconds for render interest.
+			renderInterest.setInterestLifetimeMilliseconds (Constants.BroadcastTimeoutMilliSeconds);
+			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRender interest expressed " + renderInterest.getName().toUri());
 			positionFace_.expressInterest (renderInterest, infoDataInterface, infoDataInterface);
-
 			return;
 		}
 
@@ -726,7 +737,7 @@ namespace remap.NDNMOG.DiscoveryModule
 					// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
 					for (int i = 0; i < count; i++) {
 						if (copyGameEntities [i] != null) {
-							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
+							Name interestName = new Name (copyGameEntities[i].getHubPrefix()).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
 							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
 								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
 								Interest interest = new Interest (interestName);

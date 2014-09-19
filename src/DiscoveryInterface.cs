@@ -43,9 +43,11 @@ namespace remap.NDNMOG.DiscoveryModule
 						Octant oct = instance_.getOctantByIndex (index);
 						if (oct != null && oct.isTracking()) {
 							for (i = 0; i < namesStr.Length - 1; i++) {
-								if (!oct.getNameDataset ().containsName (namesStr [i])) {
-									loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery parseData: Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
-									instance_.addGameEntityByName(namesStr[i]);
+								string [] infoStrs = namesStr[i].Split (':');
+
+								if (!oct.getNameDataset ().containsName (infoStrs[0], infoStrs[1])) {
+									loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery parseContent: Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+									instance_.addGameEntityByName(infoStrs[0], infoStrs[1]);
 								}
 							}
 						}

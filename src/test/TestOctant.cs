@@ -62,8 +62,8 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			Octant oct = instance.getOctantByIndex (startingLoc);
 		
 			// assume that this instance also knows about two more names in the startingLoc
-			oct.addName (nameList1[0]);
-			oct.addName (nameList1[1]);
+			oct.addName (Constants.DefaultHubPrefix, nameList1[0]);
+			oct.addName (Constants.DefaultHubPrefix, nameList1[1]);
 
 			// assume that this instance also knows about anotherLoc
 			//bool added = instance.addOctant (anotherLoc);
@@ -99,7 +99,7 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 			// and 'another instance' is interested in childLoc[1] as well, and 'another instance' thinks there is 'something' in the childLoc[1]
 			parentLoc.AddRange (childLoc [1]);
 			instance1.addOctant (parentLoc);
-			instance1.getOctantByIndex (parentLoc).addName ("something");
+			instance1.getOctantByIndex (parentLoc).addName (Constants.DefaultHubPrefix, "something");
 
 			MemoryIdentityStorage identityStorage = new MemoryIdentityStorage ();
 			MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage ();

@@ -85,9 +85,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onInfoInterest (Name prefix, Interest interest, Transport transport, long registeredPrefixId)
 		{
-			Name lengthName = new Name (Constants.AlephPrefix);
 			// the thing that comes directly after hubPrefix should be "players" + entityName + "info/position"
-			string cmdName = interest.getName().get (lengthName.size() + 3).toEscapedString ();
+			string cmdName = interest.getName().get (NamespaceUtils.getHubPrefixLength(interest.getName()) + 3).toEscapedString ();
 			// processing render info interest
 			if (cmdName == Constants.RenderInfoPrefix) {
 				Data data = new Data (interest.getName());
@@ -127,10 +126,8 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			Data data = new Data (interest.getName());
 
-			Name newName = new Name (Constants.AlephPrefix);
-
 			// should print the latency between generating and actually receiving interest and answering
-			if (interest.getName ().size () == (newName.size () + 3)) {
+			if (interest.getName ().size () == (NamespaceUtils.getHubPrefixLength(interest.getName()) + 3)) {
 				long sequenceNumber = instance_.getSelfGameEntity ().getSequenceNumber ();
 				data.getName ().append (Name.Component.fromNumber(sequenceNumber));
 				returnContent = instance_.getSelfGameEntity ().locationArray_ [sequenceNumber].ToString();
@@ -266,10 +263,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			loggingCallback_ 
 			  ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: " + data.getName().toUri() + " received: " + contentStr);
 
+			string hubPrefix = NamespaceUtils.getHubPrefixAsString (data.getName ());
 			string entityName = NamespaceUtils.getEntityNameFromName (data.getName ());
 			long sequenceNumber = NamespaceUtils.getSequenceFromName (data.getName ());
 
-			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
+			GameEntity gameEntity = instance_.getGameEntityByName (hubPrefix, entityName);
 
 			if (gameEntity != null && judgeSequence(gameEntity.getSequenceNumber(), sequenceNumber)) {
 				if (contentStr.Contains("reset") == false) {
@@ -296,17 +294,17 @@ namespace remap.NDNMOG.DiscoveryModule
 								// We don't have to do anything about it, except removing it from our list of names to express interest towards
 
 								// Test this part
-								instance_.removeGameEntityByName (entityName);
+								instance_.removeGameEntityByName (hubPrefix, entityName);
 								gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 							} else {
 								// This entity has left previous octant
 								List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
 								Octant prevOct = instance_.getOctantByIndex (prevIndices);
 								// NameDataset class should need MutexLock for its names
-								prevOct.removeName (entityName);
+								prevOct.removeName (hubPrefix, entityName);
 								prevOct.setDigestComponent ();
 
-								instance_.removeGameEntityByName (entityName);
+								instance_.removeGameEntityByName (hubPrefix, entityName);
 								gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 							}
 						} else {
@@ -315,12 +313,12 @@ namespace remap.NDNMOG.DiscoveryModule
 								// This entity is newly discovered, and it is cared about
 								// so it should be added to the list of names
 
-								oct.addName (entityName);
+								oct.addName (gameEntity.getHubPrefix(), entityName);
 								oct.setDigestComponent ();
 
 								// express interest for rendering info
 								if (Constants.FetchAdditionalInfoOnDiscovery) {
-									instance_.renderExpressInterest (entityName);
+									instance_.renderExpressInterest (gameEntity.getHubPrefix(), entityName);
 								}
 							} else {
 								// This entity is not newly discovered, and it may be moving out from one cared-about octant to another
@@ -328,10 +326,10 @@ namespace remap.NDNMOG.DiscoveryModule
 								// And need to make sure equals method works
 								if (!octantIndices.Equals (prevIndices)) {
 									// Game entity moved from one octant to another, and both are cared about by this instance
-									oct.addName (entityName);
+									oct.addName (gameEntity.getHubPrefix(), entityName);
 									Octant prevOct = instance_.getOctantByIndex (prevIndices);
 									// NameDataset class should need MutexLock for its names
-									prevOct.removeName (entityName);
+									prevOct.removeName (gameEntity.getHubPrefix(), entityName);
 
 									oct.setDigestComponent ();
 									prevOct.setDigestComponent ();
@@ -370,9 +368,10 @@ namespace remap.NDNMOG.DiscoveryModule
 		public void onTimeout (Interest interest)
 		{
 			loggingCallback_ ("WARNING",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnTimeout: Time out for interest " + interest.getName ().toUri ());
+			string hubPrefix = NamespaceUtils.getHubPrefixAsString (interest.getName ());
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName ());
 
-			GameEntity gameEntity = instance_.getGameEntityByName (entityName);
+			GameEntity gameEntity = instance_.getGameEntityByName (hubPrefix, entityName);
 
 			if (gameEntity != null) {
 				if (gameEntity.incrementTimeOut ()) {
@@ -381,15 +380,15 @@ namespace remap.NDNMOG.DiscoveryModule
 					Vector3 prevLocation = gameEntity.getLocation ();
 					if (prevLocation.x_ == Constants.DefaultLocationNewEntity || prevLocation.x_ == Constants.DefaultLocationDropEntity) {
 						// we don't have info about the dropped entity previously, so we just remove it from the list we express position interest towards
-						instance_.removeGameEntityByName (entityName);
+						instance_.removeGameEntityByName (hubPrefix, entityName);
 					} else {
 						// a previously known entity has dropped, so we remove it from the octant it belongs to, and the list we express position interest towards
 						List<int> prevIndices = CommonUtility.getOctantIndicesFromVector3 (prevLocation);
 						Octant prevOct = instance_.getOctantByIndex (prevIndices);
-						prevOct.removeName (entityName);
+						prevOct.removeName (hubPrefix, entityName);
 
 						prevOct.setDigestComponent ();
-						instance_.removeGameEntityByName (entityName);
+						instance_.removeGameEntityByName (hubPrefix, entityName);
 					}
 					gameEntity.setLocation (new Vector3 (Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity, Constants.DefaultLocationDropEntity), Constants.InvokeSetPosCallback);
 				}
@@ -428,8 +427,15 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		public void onTimeout(Interest interest)
 		{
+			string hubPrefix = NamespaceUtils.getHubPrefixAsString (interest.getName());
+			loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\t Info OnTimeout: interest " + interest.getName().toUri() + " times out.");
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName());
-			instance_.renderExpressInterest (entityName);
+			// TODO: Not every getGameEntityByName is locked, make sure this won't cause cross-thread access errors
+			GameEntity gameEntity = instance_.getGameEntityByName (hubPrefix, entityName);
+
+			if (gameEntity != null) {
+				instance_.renderExpressInterest (gameEntity.getHubPrefix(), entityName);
+			}
 		}
 
 		private Instance instance_;

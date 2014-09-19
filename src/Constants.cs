@@ -19,7 +19,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 		// use this prefix for this app when peers are all conneceted via aleph.ndn.ucla.edu;
 		// so that the data can be directed back.
-		public const string AlephPrefix = "ndn/edu/ucla/remap/apps/Matryoshka";
+		public const string DefaultHubPrefix = "ndn/edu/ucla/remap/apps/Matryoshka";
 
 		// use this component when expressing interest towards specific player
 		public const string PlayersPrefix = "players";
@@ -104,15 +104,50 @@ namespace remap.NDNMOG.DiscoveryModule
 	public class NamespaceUtils
 	{
 		/// <summary>
+		/// Get the length of hubPrefix from a player interest (hubPrefix + player + cmd + param)
+		/// </summary>
+		/// <returns>The hub prefix length.</returns>
+		public static int getHubPrefixLength(Name name)
+		{
+			int i = 0;
+			for (i = 0; i < name.size(); i++)
+			{
+				if (name.get (i).toEscapedString () == Constants.PlayersPrefix) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		public static string getHubPrefixAsString(Name name)
+		{
+			int i = getHubPrefixLength (name);
+			string ret = "";
+			for (int j = 0; j < i - 1; j++) {
+				ret += name.get (j).toEscapedString () + "/";
+			}
+			ret += name.get (i - 1).toEscapedString ();
+			return ret;
+		}
+
+		/// <summary>
 		/// Get the entityName from getName().toUri()
 		/// </summary>
 		/// <returns>The entity name from URI.</returns>
 		/// <param name="name">Name.</param>
-		public static string getEntityNameFromName(Name name)
+		public static string getEntityNameFromName(Name name, string hubPrefix)
 		{
-			Name lengthName = new Name (Constants.AlephPrefix);
+			Name lengthName = new Name (hubPrefix);
 			// the thing that comes directly after hubPrefix should be "players" + entityName
 			string entityName = name.get (lengthName.size() + 1).toEscapedString ();
+			return entityName;
+		}
+
+		public static string getEntityNameFromName(Name name)
+		{
+			int size = getHubPrefixLength (name);
+			// the thing that comes directly after hubPrefix should be "players" + entityName
+			string entityName = name.get (size + 1).toEscapedString ();
 			return entityName;
 		}
 
@@ -120,12 +155,24 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// Gets the sequence number from name.
 		/// </summary>
 		/// <returns>The sequence from name.</returns>
-		public static long getSequenceFromName(Name name)
+		public static long getSequenceFromName(Name name, string hubPrefix)
 		{
-			Name lengthName = new Name (Constants.AlephPrefix);
+			Name lengthName = new Name (hubPrefix);
 
 			// hubPrefix + players + entityName + position + seq
 			if (lengthName.size () + 4 == name.size ()) {
+				long sequenceNumber = name.get (-1).toNumber ();
+				return sequenceNumber;
+			} else {
+				return -1;
+			}
+		}
+
+		public static long getSequenceFromName(Name name)
+		{
+			int size = getHubPrefixLength (name);
+			// hubPrefix + players + entityName + position + seq
+			if (size + 4 == name.size ()) {
 				long sequenceNumber = name.get (-1).toNumber ();
 				return sequenceNumber;
 			} else {
@@ -138,11 +185,19 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		/// <returns>The entity name from URI.</returns>
 		/// <param name="name">Name.</param>
-		public static string getCmdFromName(Name name)
+		public static string getCmdFromName(Name name, string hubPrefix)
 		{
-			Name lengthName = new Name (Constants.AlephPrefix);
+			Name lengthName = new Name (hubPrefix);
 			// the thing that comes directly after hubPrefix should be "players" + entityName + "info/position"
 			string cmdName = name.get (lengthName.size() + 2).toEscapedString ();
+			return cmdName;
+		}
+
+		public static string getCmdFromName(Name name)
+		{
+			int size = getHubPrefixLength (name);
+			// the thing that comes directly after hubPrefix should be "players" + entityName + "info/position"
+			string cmdName = name.get (size + 2).toEscapedString ();
 			return cmdName;
 		}
 	}
