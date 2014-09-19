@@ -41,11 +41,6 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 				6, 2
 			};
 
-			List<int> anotherLoc = new List<int> () {
-				3, 1, 4, 3,
-				4, 5, 2
-			};
-
 			List<int>[] childLoc = new List<int>[2];
 
 			childLoc [0] = new List<int> () {
@@ -114,7 +109,6 @@ namespace remap.NDNMOG.DiscoveryModule.Test
 
 			// Initialize the storage.
 			Name keyName = new Name ("/testname/DSK-123");
-			Name certificateName = keyName.getSubName (0, keyName.size () - 1).append ("KEY").append (keyName.get (-1)).append ("ID-CERT").append ("0");
 			identityStorage.addKey (keyName, KeyType.RSA, new Blob (TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, false));
 
 			privateKeyStorage.setKeyPairForKeyName (keyName, TestPublishAsyncNdnx.DEFAULT_PUBLIC_KEY_DER, TestPublishAsyncNdnx.DEFAULT_PRIVATE_KEY_DER);

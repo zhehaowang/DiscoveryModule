@@ -30,7 +30,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// The root of the octree which stores all the names a player knows
 		/// </summary>
 		private Octant root_;
-		private string name_;
 
 		// The list of prefix filter strings (octant Indices)
 		private Hashtable trackingPrefixes_;
@@ -86,7 +85,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
+		  (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "")
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			if (renderString == "") {
@@ -127,8 +126,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			temp.addChild (temp1);
 
 			selfOctant_ = CommonUtility.getOctantIndicesFromVector3(location);
-
-			name_ = name;
 
 			// Instantiate the face_, keyChain_ and certificateName_
 
@@ -446,7 +443,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// </summary>
 		public void untrackOctant(Octant oct)
 		{
-			// TODO: test this method
 			oct.stopTracking ();
 
 			// stop registering prefix for its parent if this octant's the last tracking children of that parent
@@ -487,29 +483,24 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			int i = 0;
 			Interest interest = new Interest();
-			int sleepSeconds = 0; 
 			int count = 0;
 
-			int responseCount = 0;
+			Stopwatch stopwatch = new Stopwatch ();
 			// Data interface does not need keyChain_ or certificateName_, yet
 			DiscoveryDataInterface dataHandle = new DiscoveryDataInterface (this, loggingCallback_);
 
 			try 
 			{
 				while (true) {
-					// TODO: Implement which octant to express interest towards: Could be done in another thread which constants receives the location from Unity instance
-					// 		using MutexLock when modifying interestExpressionOctants_. Could be more closely coupled with Unity instance.
-					// TODO: Check if there's moments main event loop will not be running or fail to get out?
+					// TODO: Deciding which octant to express interest to is done directly in Unity instead, thinking about which way makes more sense.
+					stopwatch.Reset();
+					stopwatch.Start();
 
-					// It might be a better idea to copy the octant list and act based on that copy, so that we don't have to lock up the whole for loop
 					//interestExpressionOctantsLock_.WaitOne (Constants.MutexLockTimeoutMilliSeconds);
 					List<Octant> copyOctantsList = new List<Octant> (interestExpressionOctants_);
 					//interestExpressionOctantsLock_.ReleaseMutex();
 
-					//loggingCallback_ ("INFO", "working");
-
 					count = copyOctantsList.Count;
-					responseCount = count;
 
 					for (i = 0; i<count; i++)
 					{
@@ -528,31 +519,15 @@ namespace remap.NDNMOG.DiscoveryModule
 							broadcastFace_.expressInterest (interest, dataHandle, dataHandle);
 
 							loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery ExpressInterest: " + interest.toUri ());
-						} else {
-							responseCount--;
 						}
 					}
 
-					while (dataHandle.callbackCount_ < responseCount) {
+					while (stopwatch.ElapsedMilliseconds < Constants.BroadcastIntervalMilliSeconds) {
 						broadcastFace_.processEvents ();
 						System.Threading.Thread.Sleep (10);
-						sleepSeconds += 10;
-					}
-					dataHandle.callbackCount_ = 0;
-
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					int interval = Constants.BroadcastIntervalMilliSeconds - sleepSeconds;
-					sleepSeconds = 0;
-					if (interval > 0) {
-						Thread.Sleep (interval);
 					}
 
-					// give the peer some time(3s) for it to process the unique names received, 
-					// and confirm with those unique names whether they are in my vicinity or not.
-					// Or the interest with out-of-date digest gets sent again, and immediately gets the same response
-					//Thread.Sleep (Constants.BroadcastIntervalMilliSeconds);
+					stopwatch.Stop();
 				}
 			}
 			catch (Exception e) {
@@ -704,7 +679,6 @@ namespace remap.NDNMOG.DiscoveryModule
 					return gameEntities_ [i];
 				}
 			}
-			// Make sure lock is released in both cases
 			gameEntitiesLock_.ReleaseMutex ();
 			return null;
 		}
@@ -751,9 +725,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 					// count is for the cross-thread reference of gameEntities does not go wrong...after adding mutex lock, it shouldn't go wrong, but is still preserved for safety
 					for (int i = 0; i < count; i++) {
-						// It's unnatural that we must do this; should lock gameEntites in Add for cross thread reference
 						if (copyGameEntities [i] != null) {
-							// Position interest name is assumed to be only the Prefix + EntityName for now
 							Name interestName = new Name (Constants.AlephPrefix).append(Constants.PlayersPrefix).append(copyGameEntities [i].getName ()).append(Constants.PositionPrefix);
 							if (copyGameEntities [i].getSequenceNumber () != Constants.DefaultSequenceNumber) {
 								interestName.append (Name.Component.fromNumber ((copyGameEntities [i].getSequenceNumber () + 1) % Constants.MaxSequenceNumber));
@@ -779,9 +751,6 @@ namespace remap.NDNMOG.DiscoveryModule
 						}
 					}
 
-					// do not wait to processEvents, if it's already longer than position interval?
-					// What if RTT is always longer than positionInterval?
-					// If it's done like this, waiting for one response could cause the update of other players' locations to fall behind
 					while (stopwatch.ElapsedMilliseconds < Constants.PositionIntervalMilliSeconds) {
 						positionFace_.processEvents ();
 						System.Threading.Thread.Sleep (1);
@@ -791,9 +760,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				}
 			}
 			catch (Exception e) {
-
 				loggingCallback_ ("ERROR", DateTime.Now.ToString("h:mm:ss tt") + "\t-\t" + "positionThread: " + e.Message + "; stack trace: " + e.StackTrace);
-
 			}
 		}
 	}
