@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 using System.Diagnostics;
+using System.Timers;
 
 using net.named_data.jndn;
 using net.named_data.jndn.util;
@@ -45,7 +46,8 @@ namespace remap.NDNMOG.DiscoveryModule
 		// The thread that handles posititon interest expression
 		private Thread tPositionInterestExpression_;
 		// The thread that publishes the location of the local game entity.
-		private Thread publisherThread_;
+		//private Thread publisherThread_;
+		private System.Timers.Timer locationPublishTimer_;
 
 		// Keychain for face localhost and default certificate name, instantiated along with instance class
 		private KeyChain keyChain_;
@@ -574,12 +576,11 @@ namespace remap.NDNMOG.DiscoveryModule
 			} else {
 				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:position interest thread is not alive");
 			}
-			if (publisherThread_.IsAlive) {
-				publisherThread_.Abort ();
+			if (locationPublishTimer_.Enabled) {
+				locationPublishTimer_.Stop ();
 			} else {
 				loggingCallback_("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tstopDiscovery:self position update thread is not alive");
 			}
-			//face_.stopProcessing ();
 		}
 
 		/// <summary>
@@ -595,8 +596,10 @@ namespace remap.NDNMOG.DiscoveryModule
 				tPositionInterestExpression_ = new Thread(this.positionExpressInterest);
 				tPositionInterestExpression_.Start();
 
-				publisherThread_ = new Thread(this.publishLocation);
-				publisherThread_.Start();
+				locationPublishTimer_ = new System.Timers.Timer();
+				locationPublishTimer_.Elapsed += publishLocation;
+				locationPublishTimer_.Interval = Constants.PositionIntervalMilliSeconds;
+				locationPublishTimer_.Start();
 
 			} catch (Exception e) {
 				loggingCallback_ ("ERROR", "Discovery Exception: " + e.Message + "\nStack trace: " + e.StackTrace);
@@ -604,40 +607,35 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		// should use this method to publish to memory content cache
-		public void publishLocation()
+		public void publishLocation(object source, ElapsedEventArgs eArgs)
 		{
-			while (true) {
-				// should lock it here
-				selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);
-				selfEntity_.locationArray_ [selfEntity_.getSequenceNumber ()] = selfEntity_.getLocation ();
+			selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);
+			selfEntity_.locationArray_ [selfEntity_.getSequenceNumber ()] = selfEntity_.getLocation ();
 
-				List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
-				if (octantList != selfOctant_) {
-					Octant toRemove = getOctantByIndex (selfOctant_);
-					if (toRemove != null) {
-						toRemove.removeName (selfEntity_.getName());
-						toRemove.setDigestComponent ();
-					} else {
-						loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
-					}
-
-					Octant toAdd = getOctantByIndex (octantList);
-					if (toAdd != null) {
-						toAdd.addName (selfEntity_.getName());
-						toAdd.setDigestComponent ();
-					} else {
-						// Don't expect this to happen
-						loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
-						addOctant (octantList);
-
-						toAdd.addName (selfEntity_.getName());
-						toAdd.setDigestComponent ();
-						trackOctant (toAdd);
-					}
-					selfOctant_ = octantList;
+			List<int> octantList = CommonUtility.getOctantIndicesFromVector3 (selfEntity_.getLocation ());
+			if (octantList != selfOctant_) {
+				Octant toRemove = getOctantByIndex (selfOctant_);
+				if (toRemove != null) {
+					toRemove.removeName (selfEntity_.getName());
+					toRemove.setDigestComponent ();
+				} else {
+					loggingCallback_ ("ERROR", "Publish location error:" + " Previous octant does not exist");
 				}
 
-				Thread.Sleep(Constants.PositionIntervalMilliSeconds);
+				Octant toAdd = getOctantByIndex (octantList);
+				if (toAdd != null) {
+					toAdd.addName (selfEntity_.getName());
+					toAdd.setDigestComponent ();
+				} else {
+					// Don't expect this to happen
+					loggingCallback_ ("WARNING", "Publish location:" + " New octant was not cared about previously");
+					addOctant (octantList);
+
+					toAdd.addName (selfEntity_.getName());
+					toAdd.setDigestComponent ();
+					trackOctant (toAdd);
+				}
+				selfOctant_ = octantList;
 			}
 		}
 
@@ -677,7 +675,6 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="name">Name.</param>
 		public bool removeGameEntityByName(string name)
 		{
-			// TODO: test this method
 			GameEntity gameEntity = getGameEntityByName (name);
 			if (gameEntity == null) {
 				return false;
