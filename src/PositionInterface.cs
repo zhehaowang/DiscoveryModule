@@ -283,7 +283,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				if (contentStr.Contains("reset") == false) {
 					if (gameEntity.getQuerySequenceNumber() == Constants.DefaultSequenceNumber)
 					{
-						gameEntity.setExpectedSequenceNumber (sequenceNumber);
+						gameEntity.setExpectedSequenceNumber (sequenceNumber + 1);
 					}
 					gameEntity.setRenderSequenceNumber (sequenceNumber);
 
