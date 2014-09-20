@@ -8,8 +8,8 @@ namespace remap.NDNMOG.DiscoveryModule
 	/// <summary>
 	/// Callback for a set location prototype function, which should be implemented in Unity
 	/// </summary>
-	public delegate bool SetPosCallback(string name, Vector3 location);
-	public delegate bool InfoCallback(string name, string info);
+	public delegate bool SetPosCallback(string prefix, string name, Vector3 location);
+	public delegate bool InfoCallback(string prefix, string name, string info);
 
 	public enum EntityType
 	{
@@ -140,7 +140,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			if (invokeCallback) {
 				if (setPosCallback_ != null) {
-					setPosCallback_ (name_, location_);
+					setPosCallback_ (hubPrefix_, name_, location_);
 				}
 			}
 		}

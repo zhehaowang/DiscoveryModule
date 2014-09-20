@@ -412,6 +412,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		{
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRender data received, name: " + interest.getName().toUri());
 
+			string hubPrefix = NamespaceUtils.getHubPrefixAsString (interest.getName());
 			string entityName = NamespaceUtils.getEntityNameFromName (interest.getName());
 
 			ByteBuffer content = data.getContent ().buf ();
@@ -421,7 +422,7 @@ namespace remap.NDNMOG.DiscoveryModule
 
 			loggingCallback_ ("INFO", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tRendering: " + entityName + " " + contentStr);
 			if (infoCallback_ != null) {
-				infoCallback_ (entityName, contentStr);
+				infoCallback_ (hubPrefix, entityName, contentStr);
 			}
 		}
 

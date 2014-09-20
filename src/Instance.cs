@@ -88,7 +88,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		/// <param name="index">Index</param>
 		/// <param name="name">The name of the player (this instance).</param>
 		public Instance 
-		(List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "", string hubPrefix = "")
+		  (List<int> index, string name, Vector3 location, SetPosCallback setPosCallback, LoggingCallback loggingCallback, InfoCallback infoCallback = null, Face face = null, KeyChain keyChain = null, Name certificateName = null, string renderString = "", string hubPrefix = "")
 		{
 			selfEntity_ = new GameEntity (name, EntityType.Player, location);
 			if (renderString == "") {
