@@ -10,9 +10,9 @@ https://github.com/zhehaowang/ndn-dot-net
 Discovery module works with ndnd-tlv and nfd.
 
 Current implementation include:
-1. Octant partitioning and indexing
-2. Octant based broadcast sync-style discovery message
-3. Position update based on incrementing sequence number, at a rate of 25Hz
+* Octant partitioning and indexing
+* Octant based broadcast sync-style discovery message
+* Position update based on incrementing sequence number, at a rate of 25Hz
 
 Future updates will focus on:
 Implementation of progressive discovery, which is supported in the module, but not utilized by the test in Unity yet.
