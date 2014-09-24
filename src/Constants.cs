@@ -52,15 +52,12 @@ namespace remap.NDNMOG.DiscoveryModule
 		// Time out value for position update interest
 		public const int PositionTimeoutMilliSeconds = 250;
 		// Interval for position update if it brought back position data
-		public const int PositionIntervalMilliSeconds = 40;
+		public static int PositionIntervalMilliSeconds = 40;
 
 		// Freshness period for broadcast digest data
 		public const int DigestDataFreshnessSeconds = 5;
 		// Freshness period for each position update. According to the spec, any freshness period less than a second is not supported
 		public const int PosititonDataFreshnessSeconds = 1;
-
-		// Number of position update (published if queried) per second, please make sure (mod (1000 * PositionDataFreshnessSeconds, PositionIntervalMilliSeconds) == 0)
-		public const int PositionUpdatesPerSecond = PosititonDataFreshnessSeconds * 1000 / PositionIntervalMilliSeconds;
 
 		// The default timeout for mutex locks used in instance class
 		public const int MutexLockTimeoutMilliSeconds = 1000;
@@ -99,6 +96,11 @@ namespace remap.NDNMOG.DiscoveryModule
 		public const bool FetchAdditionalInfoOnDiscovery = true;
 		// The string for default rendering skin
 		public const string DefaultRenderString = "yellow";
+
+		public static void setPositionIntervalMilliseconds(int milliseconds)
+		{
+			PositionIntervalMilliSeconds = milliseconds;
+		}
 	}
 
 	public class NamespaceUtils

@@ -237,7 +237,6 @@ namespace remap.NDNMOG.DiscoveryModule
 			if (seq1 < seq2 || seq1 == Constants.MaxSequenceNumber - 1 || seq1 == Constants.DefaultSequenceNumber) {
 				return true;
 			} else {
-				loggingCallback_("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData judgeSequence: received: " + seq2 + " sequence not taken; current " + seq1);
 				return false;
 			}
 		}
@@ -354,7 +353,7 @@ namespace remap.NDNMOG.DiscoveryModule
 				if (gameEntity == null) {
 					loggingCallback_ ("WARNING", DateTime.Now.ToString ("h:mm:ss tt") + "\t-\tPosition OnData: Received name (" + entityName + ") does not have a gameEntity stored locally");
 				} else {
-					loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: Sequence rejected. Local: " + gameEntity.getSequenceNumber() + "; Received: " + sequenceNumber);
+					loggingCallback_ ("WARNING", DateTime.Now.ToString("h:mm:ss tt") + "\t-\tPosition OnData: Sequence rejected. " + gameEntity.getName() + "'s Local: " + gameEntity.getSequenceNumber() + "; Received: " + sequenceNumber);
 				}
 			}
 		}
