@@ -19,6 +19,8 @@ namespace remap.NDNMOG.DiscoveryModule
 {
 	public delegate bool LoggingCallback(string type, string info);
 
+	// TODO: discovery of self is still found to be possible for local peer...during a UDP test run of three peers.
+
 	/// <summary>
 	/// Instance: for periodic broadcast of sync style message.
 	/// Accesses all the octants and their digest fields to form the broadcast interest names
@@ -593,6 +595,7 @@ namespace remap.NDNMOG.DiscoveryModule
 		}
 
 		// should use this method to publish to memory content cache
+		// This logic seems to be causing multiple discovery of self
 		public void publishLocation(object source, ElapsedEventArgs eArgs)
 		{
 			selfEntity_.setSequenceNumber ((selfEntity_.getSequenceNumber() + 1) % Constants.MaxSequenceNumber);

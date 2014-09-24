@@ -46,8 +46,11 @@ namespace remap.NDNMOG.DiscoveryModule
 								string [] infoStrs = namesStr[i].Split (':');
 
 								if (!oct.getNameDataset ().containsName (infoStrs[0], infoStrs[1])) {
-									loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery parseContent: Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
-									instance_.addGameEntityByName(infoStrs[0], infoStrs[1]);
+									// stop considering self as another unique name; this should block the discovery of self, but not fundamentally
+									if (infoStrs[1] != instance_.getSelfGameEntity().getName() || infoStrs[0] != instance_.getSelfGameEntity().getHubPrefix()) {
+										loggingCallback_ ("INFO",  DateTime.Now.ToString("h:mm:ss tt") + "\t-\tDiscovery parseContent: Received unique name " + namesStr [i] + " at Octant: " + CommonUtility.getStringFromList (index));
+										instance_.addGameEntityByName(infoStrs[0], infoStrs[1]);
+									}
 								}
 							}
 						}
