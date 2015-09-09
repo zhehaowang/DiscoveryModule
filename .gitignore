@@ -2,5 +2,6 @@
 /*/
 !/src/
 !README.md
+!/abstract-poster-icn14/
 !*.cs
 !.gitignore
